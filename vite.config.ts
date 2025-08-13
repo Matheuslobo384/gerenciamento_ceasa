@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { VitePWA } from 'vite-plugin-pwa';
 
-// https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   const plugins: PluginOption[] = [
     react(),
@@ -20,7 +19,7 @@ export default defineConfig(async ({ mode }) => {
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                maxAgeSeconds: 60 * 60 * 24 * 365
               }
             }
           },
@@ -31,7 +30,7 @@ export default defineConfig(async ({ mode }) => {
               cacheName: 'gstatic-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // <== 365 days
+                maxAgeSeconds: 60 * 60 * 24 * 365
               }
             }
           }
@@ -48,83 +47,61 @@ export default defineConfig(async ({ mode }) => {
         background_color: '#0F172A',
         theme_color: '#0F172A',
         categories: ['business', 'productivity', 'finance'],
-        lang: 'pt-BR',
-        dir: 'ltr',
         icons: [
           {
             src: '/icons/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable any'
           },
           {
             src: '/icons/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ],
-        shortcuts: [
-          {
-            name: 'Dashboard',
-            short_name: 'Dashboard',
-            description: 'Acessar dashboard principal',
-            url: '/dashboard',
-            icons: [
-              {
-                src: '/icons/icon-192x192.png',
-                sizes: '192x192'
-              }
-            ]
-          },
-          {
-            name: 'Vendas',
-            short_name: 'Vendas',
-            description: 'Gerenciar vendas',
-            url: '/vendas',
-            icons: [
-              {
-                src: '/icons/icon-192x192.png',
-                sizes: '192x192'
-              }
-            ]
-          },
-          {
-            name: 'Produtos',
-            short_name: 'Produtos',
-            description: 'Gerenciar produtos',
-            url: '/produtos',
-            icons: [
-              {
-                src: '/icons/icon-192x192.png',
-                sizes: '192x192'
-              }
-            ]
+            purpose: 'maskable any'
           }
         ]
-      },
-      devOptions: {
-        enabled: false // desabilita SW em desenvolvimento para não conflitar com Vite
       }
-    }),
+    })
   ];
 
-  if (mode === 'development') {
-    const { componentTagger } = await import('lovable-tagger');
-    plugins.push(componentTagger());
-  }
-
   return {
-    server: {
-      host: "0.0.0.0",
-      port: 5173,
-      strictPort: false,
-    },
     plugins,
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    build: {
+      target: 'esnext',
+      minify: 'terser',
+      sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Separar vendor libraries em chunks menores
+            'react-vendor': ['react', 'react-dom'],
+            'router-vendor': ['react-router-dom'],
+            'query-vendor': ['@tanstack/react-query'],
+            'supabase-vendor': ['@supabase/supabase-js'],
+            'ui-vendor': ['lucide-react', '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu'],
+            'chart-vendor': ['recharts'],
+            'utils-vendor': ['clsx', 'tailwind-merge', 'date-fns']
+          },
+          chunkFileNames: 'assets/[name]-[hash].js',
+          entryFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]'
+        }
+      },
+      chunkSizeWarningLimit: 500
+    },
+    server: {
+      port: 8082,
+      host: true
+    },
+    preview: {
+      port: 8082,
+      host: true
+    }
   };
 });

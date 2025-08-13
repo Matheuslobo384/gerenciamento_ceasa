@@ -25,7 +25,14 @@ class ErrorBoundary extends Component<Props, State> {
 
   static getDerivedStateFromError(error: Error): State {
     const errorId = `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    console.error('🚨 ErrorBoundary: Erro capturado:', error);
+    
+    // Log mais detalhado para debug
+    console.group('🚨 ErrorBoundary: Erro capturado');
+    console.error('Error:', error);
+    console.error('Stack:', error.stack);
+    console.error('Message:', error.message);
+    console.error('Name:', error.name);
+    console.groupEnd();
     
     return { 
       hasError: true, 
@@ -42,30 +49,26 @@ class ErrorBoundary extends Component<Props, State> {
       errorId: this.state.errorId,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent
+      userAgent: navigator.userAgent,
+      // Adicionar informações do Supabase
+      supabaseUrl: import.meta.env.VITE_SUPABASE_URL || 'NOT_SET',
+      hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
     };
-
-    console.error('🚨 ErrorBoundary: Detalhes do erro:', errorDetails);
+  
+    console.group('🚨 ErrorBoundary: Detalhes completos');
+    console.table(errorDetails);
+    console.groupEnd();
     
-    // Tentar registrar no sistema de debug se disponível
+    // Salvar no localStorage para debug
     try {
-      // Enviar evento customizado para ser capturado pelo useDebug
-      window.dispatchEvent(new CustomEvent('debug-log', {
-        detail: {
-          type: 'error',
-          message: `ErrorBoundary: ${error.message}`,
-          details: errorDetails,
-          stack: error.stack
-        }
-      }));
+      const existingErrors = JSON.parse(localStorage.getItem('app-errors') || '[]');
+      existingErrors.push(errorDetails);
+      localStorage.setItem('app-errors', JSON.stringify(existingErrors.slice(-10))); // Manter apenas os últimos 10
     } catch (e) {
-      console.warn('Não foi possível registrar erro no sistema de debug:', e);
+      console.warn('Não foi possível salvar erro no localStorage:', e);
     }
-    
-    this.setState({
-      error,
-      errorInfo
-    });
+
+    this.setState({ errorInfo });
   }
 
   handleReset = () => {
