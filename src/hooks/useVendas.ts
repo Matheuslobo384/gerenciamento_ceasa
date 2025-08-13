@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useDebug } from '@/hooks/useDebug';
 
 export interface Venda {
   id: string;
@@ -40,13 +41,15 @@ export interface VendaCompleta extends Venda {
 }
 
 export function useVendas() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { addLog } = useDebug();
 
   const { data: vendas = [], isLoading } = useQuery({
     queryKey: ['vendas'],
     queryFn: async () => {
       console.log('useVendas: Buscando vendas...');
+      // Remover tipagem estrita para evitar conflitos
       const { data, error } = await (supabase as any)
         .from('vendas')
         .select(`
@@ -67,76 +70,108 @@ export function useVendas() {
   });
 
   const createVenda = useMutation({
-    mutationFn: async (venda: { 
-      cliente_id?: string; 
-      total: number; 
-      desconto?: number; 
-      frete?: number;
-      tipoFrete?: string;
-      status: string; 
-      observacoes?: string;
-      comissao_percentual?: number;
-      itens: { produto_id: string; quantidade: number; preco_unitario: number }[];
-    }) => {
-      console.log('useVendas: Iniciando criação de venda:', venda);
-      const { itens, tipoFrete, frete, ...vendaData } = venda;
+    mutationFn: async (vendaData: any) => {
+      addLog('info', '🚀 Iniciando criação de venda', vendaData);
       
-      // Preparar dados da venda incluindo frete e comissão
-      const vendaParaEnviar = {
-        ...vendaData,
-        frete: frete || null,
-        tipo_frete: tipoFrete || 'padrao'
-      };
-      
-      console.log('useVendas: Criando venda no banco...');
-      const { data: vendaCriada, error: vendaError } = await (supabase as any)
-        .from('vendas')
-        .insert([vendaParaEnviar])
-        .select()
-        .single();
-      
-      if (vendaError) {
-        console.error('useVendas: Erro ao criar venda:', vendaError);
-        throw vendaError;
+      try {
+        // Preparar dados da venda
+        const { itens, ...vendaSemItens } = vendaData;
+        
+        // Limpar campos que podem causar conflito
+        const vendaLimpa = {
+          cliente_id: vendaSemItens.cliente_id || null,
+          total: vendaSemItens.total,
+          desconto: vendaSemItens.desconto || null,
+          frete: vendaSemItens.frete || null,
+          tipo_frete: vendaSemItens.tipo_frete || null,
+          status: vendaSemItens.status,
+          observacoes: vendaSemItens.observacoes || null,
+          comissao_percentual: vendaSemItens.comissao_percentual || null
+        };
+        
+        addLog('info', '📝 Dados da venda preparados', {
+          venda: vendaLimpa,
+          quantidadeItens: itens?.length || 0
+        });
+    
+        // Inserir venda - usar (supabase as any) para evitar erro de tipagem
+        const { data: venda, error: vendaError } = await (supabase as any)
+          .from('vendas')
+          .insert([vendaLimpa])
+          .select()
+          .single();
+    
+        if (vendaError) {
+          addLog('error', '❌ Erro ao inserir venda', {
+            error: vendaError,
+            dadosEnviados: vendaLimpa
+          });
+          throw vendaError;
+        }
+
+        // Verificar se venda foi criada com sucesso
+        if (!venda) {
+          throw new Error('Venda não foi criada - dados retornados são null');
+        }
+    
+        addLog('info', '✅ Venda criada com sucesso', { vendaId: venda.id });
+    
+        // Inserir itens se existirem
+        if (itens && itens.length > 0) {
+          const itensParaInserir = itens.map((item: any) => ({
+            venda_id: venda.id,
+            produto_id: item.produto_id,
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario
+          }));
+    
+          addLog('info', '📦 Inserindo itens da venda', {
+            vendaId: venda.id,
+            itens: itensParaInserir
+          });
+    
+          // Inserir SEM enviar subtotal (coluna gerada no banco)
+          const { error: itensError } = await (supabase as any)
+            .from('itens_venda')
+            .insert(itensParaInserir);
+    
+          if (itensError) {
+            addLog('error', '❌ Erro ao inserir itens', {
+              error: itensError,
+              itensEnviados: itensParaInserir
+            });
+            throw itensError;
+          } else {
+            addLog('info', '✅ Itens inseridos com sucesso');
+          }
+        }
+    
+        addLog('info', '🎉 Venda completa criada com sucesso', { vendaId: venda.id });
+        return venda;
+        
+      } catch (error) {
+        addLog('error', '💥 Erro geral na criação de venda', {
+          error,
+          dadosOriginais: vendaData
+        });
+        throw error;
       }
-      if (!vendaCriada) {
-        console.error('useVendas: Venda não foi criada');
-        throw new Error('Erro ao criar venda');
-      }
-
-      console.log('useVendas: Venda criada com sucesso:', vendaCriada);
-
-      const itensComSubtotal = itens.map(item => ({
-        venda_id: vendaCriada.id,
-        produto_id: item.produto_id,
-        quantidade: item.quantidade,
-        preco_unitario: item.preco_unitario,
-        subtotal: item.quantidade * item.preco_unitario
-      }));
-
-      console.log('useVendas: Criando itens da venda:', itensComSubtotal);
-
-      const { error: itensError } = await (supabase as any)
-        .from('itens_venda')
-        .insert(itensComSubtotal);
-      
-      if (itensError) {
-        console.error('useVendas: Erro ao criar itens da venda:', itensError);
-        throw itensError;
-      }
-      
-      console.log('useVendas: Venda e itens criados com sucesso');
-      return vendaCriada;
     },
     onSuccess: () => {
-      console.log('useVendas: Invalidando cache de vendas');
       queryClient.invalidateQueries({ queryKey: ['vendas'] });
-      toast({ title: 'Venda criada com sucesso!' });
+      toast({
+        title: "✅ Sucesso",
+        description: "Venda criada com sucesso!",
+      });
     },
-    onError: (error) => {
-      console.error('useVendas: Erro na mutação de criação:', error);
-      toast({ title: 'Erro ao criar venda', variant: 'destructive' });
-    }
+    onError: (error: any) => {
+      addLog('error', '🚨 Falha na criação de venda', error);
+      toast({
+        title: "❌ Erro",
+        description: `Erro ao criar venda: ${error.message}`,
+        variant: "destructive",
+      });
+    },
   });
 
   const updateVenda = useMutation({
@@ -146,20 +181,20 @@ export function useVendas() {
       total: number; 
       desconto?: number; 
       frete?: number;
-      tipoFrete?: string;
+      tipo_frete?: string;
       status: string; 
       observacoes?: string;
       comissao_percentual?: number;
       itens: { produto_id: string; quantidade: number; preco_unitario: number }[];
     }) => {
       console.log('useVendas: Iniciando atualização de venda:', venda);
-      const { id, itens, tipoFrete, frete, ...vendaData } = venda;
+      const { id, itens, tipo_frete, frete, ...vendaData } = venda;
       
-      // Preparar dados da venda incluindo frete e comissão
+      // Preparar dados da venda incluindo frete e tipo_frete
       const vendaParaEnviar = {
         ...vendaData,
         frete: frete || null,
-        tipo_frete: tipoFrete || 'padrao'
+        tipo_frete: tipo_frete || 'padrao'
       };
       
       console.log('useVendas: Atualizando venda no banco...');
@@ -196,15 +231,43 @@ export function useVendas() {
         subtotal: item.quantidade * item.preco_unitario
       }));
 
-      console.log('useVendas: Criando novos itens da venda:', itensComSubtotal);
+      console.log('useVendas: Criando novos itens da venda (com subtotal):', itensComSubtotal);
 
-      const { error: itensError } = await (supabase as any)
+      const { error: itensInsertError1 } = await (supabase as any)
         .from('itens_venda')
         .insert(itensComSubtotal);
+
+      // Fallback para ausência da coluna subtotal
+      if (itensInsertError1 && /column .*subtotal.* does not exist/i.test(itensInsertError1.message || '')) {
+        console.warn('useVendas: Coluna subtotal não existe em itens_venda. Tentando inserir sem subtotal...');
+        const itensSemSubtotal = itens.map(item => ({
+          venda_id: id,
+          produto_id: item.produto_id,
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario,
+        }));
+        const { error: itensInsertError2 } = await (supabase as any)
+          .from('itens_venda')
+          .insert(itensSemSubtotal);
+
+        if (itensInsertError2) {
+          console.error('useVendas: Erro ao criar itens (fallback sem subtotal):', itensInsertError2);
+          throw itensInsertError2;
+        }
+      } else if (itensInsertError1) {
+        console.error('useVendas: Erro ao criar novos itens da venda:', itensInsertError1);
+        throw itensInsertError1;
+      }
       
-      if (itensError) {
-        console.error('useVendas: Erro ao criar novos itens da venda:', itensError);
-        throw itensError;
+      console.log('useVendas: Criando novos itens da venda (sem subtotal):', itensParaInserir);
+
+      const { error: itensInsertError } = await (supabase as any)
+        .from('itens_venda')
+        .insert(itensParaInserir);
+
+      if (itensInsertError) {
+        console.error('useVendas: Erro ao criar novos itens da venda:', itensInsertError);
+        throw itensInsertError;
       }
       
       console.log('useVendas: Venda e itens atualizados com sucesso');
@@ -215,9 +278,9 @@ export function useVendas() {
       queryClient.invalidateQueries({ queryKey: ['vendas'] });
       toast({ title: 'Venda atualizada com sucesso!' });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('useVendas: Erro na mutação de atualização:', error);
-      toast({ title: 'Erro ao atualizar venda', variant: 'destructive' });
+      toast({ title: 'Erro ao atualizar venda', description: error?.message || String(error), variant: 'destructive' });
     }
   });
 

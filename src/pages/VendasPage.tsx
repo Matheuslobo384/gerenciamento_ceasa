@@ -40,7 +40,7 @@ function VendasPage() {
     observacoes?: string;
     itens: { produto_id: string; quantidade: number; preco_unitario: number }[];
     frete?: number;
-    tipoFrete?: string;
+    tipo_frete?: string;
     comissao_percentual?: number;
   }) => {
     if (!isMountedRef.current) return;
@@ -59,7 +59,7 @@ function VendasPage() {
     observacoes?: string;
     itens: { produto_id: string; quantidade: number; preco_unitario: number }[];
     frete?: number;
-    tipoFrete?: string;
+    tipo_frete?: string;
     comissao_percentual?: number;
   }) => {
     if (!isMountedRef.current || !editingVenda) return;
@@ -146,7 +146,7 @@ function VendasPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Cliente</TableHead>
-                  <TableHead>Total Geral</TableHead>
+                  <TableHead>Total Cliente</TableHead>
                   <TableHead>Detalhes</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Data</TableHead>
@@ -155,13 +155,13 @@ function VendasPage() {
               </TableHeader>
               <TableBody>
                 {vendas.map((venda) => {
-                  const totalGeral = venda.total + (venda.frete || 0) + (venda.comissao_valor || 0);
+                  const totalCliente = venda.total - (venda.frete || 0) - (venda.comissao_valor || 0) + (venda.desconto || 0);
                   return (
                   <TableRow key={venda.id}>
                     <TableCell className="font-medium">
                       {venda.clientes?.nome || 'Cliente não informado'}
                     </TableCell>
-                    <TableCell className="font-bold text-green-600">R$ {totalGeral.toFixed(2)}</TableCell>
+                    <TableCell className="font-bold text-green-600">R$ {totalCliente.toFixed(2)}</TableCell>
                     <TableCell>
                       <div className="text-sm space-y-1">
                         <div>Produtos: R$ {venda.total.toFixed(2)}</div>
@@ -253,7 +253,7 @@ function VendasPage() {
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <div className="text-center">
                       <div className="text-lg font-bold text-green-800 mb-2">
-                        Total Geral: R$ {(viewingVenda.total + (viewingVenda.frete || 0) + (viewingVenda.comissao_valor || 0)).toFixed(2)}
+                        Total Geral: R$ {(viewingVenda.total - (viewingVenda.frete || 0) - (viewingVenda.comissao_valor || 0) + (viewingVenda.desconto || 0)).toFixed(2)}
                       </div>
                       <div className="text-sm text-green-600 space-y-1">
                         <div>Produtos: R$ {viewingVenda.total.toFixed(2)}</div>

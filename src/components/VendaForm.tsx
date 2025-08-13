@@ -158,33 +158,43 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
     calculoFrete.valorFrete;
   
   const desconto = parseFloat(formData.desconto) || 0;
-  const total = subtotal - valorFrete - desconto;
-
+  
+  // ✅ CORREÇÃO: Total = Subtotal dos produtos - Desconto
+  // Frete e comissão são despesas da empresa, não somadas ao que cliente paga
+  const total = subtotal - desconto;
+  
+  // Calcular comissão para exibição
+  const comissaoPercentual = parseFloat(formData.comissao_percentual) || 10;
+  const comissaoValor = (subtotal * comissaoPercentual / 100);
+  
+  // Calcular o que o cliente realmente vai pagar
+  const totalCliente = subtotal - valorFrete - comissaoValor - desconto;
+  
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isMountedRef.current) return;
-    
-    const itensValidos = itens.filter(item => item.produto_id && item.quantidade > 0);
-    
-    if (itensValidos.length === 0) {
-      alert('Adicione pelo menos um item à venda');
-      return;
-    }
-
-    // Removendo o ID dos itens antes de enviar
-    const itensParaEnviar = itensValidos.map(({ id, ...item }) => item);
-
-    onSubmit({
-        cliente_id: formData.cliente_id || undefined,
-        total,
-        desconto: desconto || undefined,
-        status: formData.status,
-        observacoes: formData.observacoes || undefined,
-        itens: itensParaEnviar,
-        frete: valorFrete,
-        tipo_frete: formData.usar_frete_manual ? 'manual' : calculoFrete.tipoFrete,
-        comissao_percentual: formData.comissao_percentual ? parseFloat(formData.comissao_percentual) : undefined
-      });
+      e.preventDefault();
+      if (!isMountedRef.current) return;
+      
+      const itensValidos = itens.filter(item => item.produto_id && item.quantidade > 0);
+      
+      if (itensValidos.length === 0) {
+        alert('Adicione pelo menos um item à venda');
+        return;
+      }
+  
+      // Removendo o ID dos itens antes de enviar
+      const itensParaEnviar = itensValidos.map(({ id, ...item }) => item);
+  
+      onSubmit({
+          cliente_id: formData.cliente_id || undefined,
+          total, // Apenas subtotal dos produtos - desconto
+          desconto: desconto || undefined,
+          status: formData.status,
+          observacoes: formData.observacoes || undefined,
+          itens: itensParaEnviar,
+          frete: valorFrete,
+          tipo_frete: formData.usar_frete_manual ? 'manual' : calculoFrete.tipoFrete,
+          comissao_percentual: formData.comissao_percentual ? parseFloat(formData.comissao_percentual) : undefined
+        });
   };
 
   return (
@@ -399,7 +409,7 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
             </div>
             
             <div className="flex justify-between items-center">
-              <Label htmlFor="desconto">Desconto:</Label>
+              <Label htmlFor="desconto">(-) Desconto:</Label>
               <Input
                 id="desconto"
                 type="number"
@@ -411,9 +421,11 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
               />
             </div>
             
-            <div className="flex justify-between text-lg font-bold">
-              <span>Total:</span>
-              <span>R$ {total.toFixed(2)}</span>
+            <div className="border-t pt-2">
+              <div className="flex justify-between text-lg font-bold text-green-600">
+                <span>Total que Cliente Paga:</span>
+                <span>R$ {totalCliente.toFixed(2)}</span>
+              </div>
             </div>
           </div>
 

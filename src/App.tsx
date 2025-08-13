@@ -9,6 +9,7 @@ import { Layout } from '@/components/Layout';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
 import { InstallPwaPopup } from '@/components/InstallPwaPopup';
 import ErrorBoundary from '@/components/ErrorBoundary';
+import { DebugPanel } from '@/components/DebugPanel';
 
 // Pages
 import Index from '@/pages/Index';
@@ -34,6 +35,7 @@ const queryClient = new QueryClient({
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { promptEvent, showInstallPopup, dismissInstallPrompt } = useInstallPrompt();
 
   useEffect(() => {
     // Get initial session
@@ -56,129 +58,69 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-};
-
-const App = () => {
-  const { promptEvent, promptToInstall } = useInstallPrompt();
-  const [showInstallPopup, setShowInstallPopup] = useState(false);
-
-  useEffect(() => {
-    if (promptEvent) {
-      setShowInstallPopup(true);
-    }
-  }, [promptEvent]);
-
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <QueryClientProvider client={queryClient}>
+          <Toaster />
           <Router>
-            <Routes>
-              {/* Public route - Login */}
-              <Route path="/login" element={<Index />} />
-              
-              {/* Protected routes */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <Dashboard />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/produtos"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <ProdutosPage />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/clientes"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <ClientesPage />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/vendas"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <VendasPage />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/relatorios"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <RelatoriosPage />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/configuracoes"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <ConfiguracoesPage />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/teste-frete"
-                element={
-                  <ProtectedRoute>
-                    <Layout>
-                      <TesteFreteQuantidade />
-                    </Layout>
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* 404 route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            {!user ? (
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            ) : (
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/produtos" element={<ProdutosPage />} />
+                  <Route path="/clientes" element={<ClientesPage />} />
+                  <Route path="/vendas" element={<VendasPage />} />
+                  <Route path="/relatorios" element={<RelatoriosPage />} />
+                  <Route path="/configuracoes" element={<ConfiguracoesPage />} />
+                  <Route path="/teste-frete" element={<TesteFreteQuantidade />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Layout>
+            )}
           </Router>
           
-          <Toaster />
-          
+          {/* Install PWA Popup */}
           {showInstallPopup && (
             <InstallPwaPopup
               onInstall={() => {
-                promptToInstall();
-                setShowInstallPopup(false);
+                if (promptEvent) {
+                  promptEvent.prompt();
+                  promptEvent.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                      console.log('User accepted the install prompt');
+                    } else {
+                      console.log('User dismissed the install prompt');
+                    }
+                  });
+                }
+                dismissInstallPrompt();
               }}
-              onDismiss={() => setShowInstallPopup(false)}
+              onDismiss={dismissInstallPrompt}
             />
           )}
+          
+          {/* Debug Panel */}
+          <DebugPanel />
         </QueryClientProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
 };
+
+function App() {
+  return <ProtectedRoute><></></ProtectedRoute>;
+}
 
 export default App;
