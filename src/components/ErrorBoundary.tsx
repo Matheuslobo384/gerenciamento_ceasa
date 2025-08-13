@@ -63,6 +63,67 @@ class ErrorBoundary extends Component<Props, State> {
       console.error('Erro ao salvar log:', e);
     }
   }
+
+  // Adicionado: método obrigatório de renderização com fallback
+  render() {
+    if (this.state.hasError) {
+      const message = this.state.error?.message || 'Erro desconhecido';
+      return (
+        <div style={{ padding: 24 }}>
+          <h1 style={{ fontSize: 20, marginBottom: 8 }}>Ocorreu um erro na interface</h1>
+          <p style={{ color: '#666', marginBottom: 16 }}>
+            {message}
+          </p>
+          {this.state.errorInfo?.componentStack && (
+            <pre
+              style={{
+                background: '#f5f5f5',
+                padding: 12,
+                borderRadius: 8,
+                overflowX: 'auto',
+                maxHeight: 200
+              }}
+            >
+              {this.state.errorInfo.componentStack}
+            </pre>
+          )}
+          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                padding: '8px 12px',
+                background: '#111827',
+                color: '#fff',
+                borderRadius: 6,
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Recarregar página
+            </button>
+            <button
+              onClick={() => {
+                localStorage.clear();
+                window.location.href = '/';
+              }}
+              style={{
+                padding: '8px 12px',
+                background: '#ef4444',
+                color: '#fff',
+                borderRadius: 6,
+                border: 'none',
+                cursor: 'pointer'
+              }}
+            >
+              Limpar cache e voltar ao login
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 export default ErrorBoundary;

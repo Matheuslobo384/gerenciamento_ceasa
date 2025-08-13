@@ -9,9 +9,9 @@ import { useAuth } from "@/hooks/useAuth";
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
-  const { produtos } = useProdutos();
-  const { clientes } = useClientes();
-  const { vendas } = useVendas();
+  const { produtos, isLoading: produtosLoading } = useProdutos();
+  const { clientes, isLoading: clientesLoading } = useClientes();
+  const { vendas, isLoading: vendasLoading } = useVendas();
 
   // Se ainda está carregando a autenticação, mostrar loading
   if (loading) {
@@ -53,7 +53,7 @@ const Dashboard = () => {
 
       {/* Métricas Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duração-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Produtos</CardTitle>
             <Package className="h-4 w-4 text-primary" />
@@ -68,7 +68,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duração-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Clientes Ativos</CardTitle>
             <Users className="h-4 w-4 text-primary" />
@@ -83,7 +83,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duração-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
             <DollarSign className="h-4 w-4 text-success" />
@@ -98,7 +98,7 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duration-300">
+        <Card className="bg-gradient-to-br from-card to-accent hover:shadow-lg transition-all duração-300">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Vendas</CardTitle>
             <TrendingUp className="h-4 w-4 text-success" />
