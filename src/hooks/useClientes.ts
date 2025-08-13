@@ -1,17 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Cliente {
   id: string;
   nome: string;
-  email?: string | null;
-  telefone?: string | null;
   cpf_cnpj?: string | null;
+  telefone?: string | null;
   endereco?: string | null;
-  cidade?: string | null;
-  estado?: string | null;
-  cep?: string | null;
+  email?: string | null;
   comissao_personalizada?: number | null;
   ativo: boolean;
   created_at: string;
@@ -21,6 +19,7 @@ export interface Cliente {
 export function useClientes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: clientes = [], isLoading } = useQuery({
     queryKey: ['clientes'],
@@ -30,14 +29,10 @@ export function useClientes() {
         .select('*')
         .order('nome');
       
-      if (error) {
-        throw error;
-      }
-      
+      if (error) throw error;
       return data as Cliente[];
     },
-    retry: 3,
-    retryDelay: 1000,
+    enabled: !!user // Só executa se o usuário estiver autenticado
   });
 
   const createCliente = useMutation({

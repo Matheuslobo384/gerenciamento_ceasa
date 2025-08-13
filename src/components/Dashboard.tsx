@@ -5,11 +5,27 @@ import { Package, Users, DollarSign, TrendingUp, AlertTriangle } from "lucide-re
 import { useProdutos } from "@/hooks/useProdutos";
 import { useClientes } from "@/hooks/useClientes";
 import { useVendas } from "@/hooks/useVendas";
+import { useAuth } from "@/hooks/useAuth";
 
-function Dashboard() {
-  const { produtos, isLoading: produtosLoading } = useProdutos();
-  const { clientes, isLoading: clientesLoading } = useClientes();
-  const { vendas, isLoading: vendasLoading } = useVendas();
+const Dashboard = () => {
+  const { user, loading } = useAuth();
+  const { produtos } = useProdutos();
+  const { clientes } = useClientes();
+  const { vendas } = useVendas();
+
+  // Se ainda está carregando a autenticação, mostrar loading
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Se não há usuário autenticado, não renderizar nada
+  if (!user) {
+    return null;
+  }
 
   // Calcular métricas
   const totalProdutos = produtos.length;

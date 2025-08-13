@@ -2,10 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { FreteConfig } from '@/components/FreteConfig';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useFreteConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: config, isLoading } = useQuery({
     queryKey: ['frete-config'],
@@ -31,7 +33,8 @@ export function useFreteConfig() {
         tipoCalculo: configMap.tipo_calculo_frete || 'por_pedido',
         fretePorQuantidade: Number(configMap.frete_por_quantidade) || 5
       } as FreteConfig;
-    }
+    },
+    enabled: !!user // Só executa se o usuário estiver autenticado
   });
 
   const updateConfig = useMutation({

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDebug } from '@/hooks/useDebug';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Venda {
   id: string;
@@ -41,32 +42,37 @@ export interface VendaCompleta extends Venda {
 }
 
 export function useVendas() {
-  const queryClient = useQueryClient();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { addLog } = useDebug();
+  const { user } = useAuth();
 
   const { data: vendas = [], isLoading } = useQuery({
     queryKey: ['vendas'],
     queryFn: async () => {
-      console.log('useVendas: Buscando vendas...');
-      // Remover tipagem estrita para evitar conflitos
+      addLog('info', 'Buscando vendas...');
+      
       const { data, error } = await (supabase as any)
         .from('vendas')
         .select(`
           *,
-          clientes(nome, cpf_cnpj, telefone, endereco),
-          itens_venda(*, produtos(nome))
+          clientes:cliente_id (nome, cpf_cnpj, telefone, endereco),
+          itens_venda (
+            *,
+            produtos:produto_id (nome)
+          )
         `)
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('useVendas: Erro ao buscar vendas:', error);
+        addLog('error', 'Erro ao buscar vendas', error);
         throw error;
       }
       
-      console.log('useVendas: Vendas carregadas:', data);
+      addLog('info', `${data?.length || 0} vendas carregadas`);
       return data as VendaCompleta[];
-    }
+    },
+    enabled: !!user // Só executa se o usuário estiver autenticado
   });
 
   const createVenda = useMutation({

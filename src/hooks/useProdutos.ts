@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface Produto {
   id: string;
@@ -18,6 +19,7 @@ export interface Produto {
 export function useProdutos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const { data: produtos = [], isLoading } = useQuery({
     queryKey: ['produtos'],
@@ -29,7 +31,8 @@ export function useProdutos() {
       
       if (error) throw error;
       return data as Produto[];
-    }
+    },
+    enabled: !!user // Só executa se o usuário estiver autenticado
   });
 
   const createProduto = useMutation({
