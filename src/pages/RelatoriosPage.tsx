@@ -9,11 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useVendas } from '@/hooks/useVendas';
 import { useProdutos } from '@/hooks/useProdutos';
 import { useClientes } from '@/hooks/useClientes';
-import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, DollarSign, Calendar, Download, FileText, Table } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, DollarSign, Calendar, Download, FileText, Table, Filter } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Papa from 'papaparse';
+import { formatarMoeda, formatarNumero } from '@/lib/utils';
 
 // Extend jsPDF type to include autoTable
 declare module 'jspdf' {
@@ -141,172 +142,255 @@ export default function RelatoriosPage() {
     }).format(valor);
   };
 
+  // Funções auxiliares para geração do PDF
+  const addHeader = (doc: jsPDF, periodo: PeriodoFiltro, clienteNome: string) => {
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Título principal - seguindo o design da imagem
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(51, 65, 85); // Cor mais suave
+    doc.text('Relatório Financeiro', margin, 35);
+    
+    // Informações do período e cliente - layout da imagem
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    
+    const periodoTexto = `Período de ${format(parseISO(periodo.inicio), 'dd/MM/yyyy')} a ${format(parseISO(periodo.fim), 'dd/MM/yyyy')}`;
+    const clienteTexto = `Cliente: ${clienteNome}`;
+    const dataGeracao = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
+    
+    doc.text(periodoTexto, margin, 50);
+    doc.text(clienteTexto, margin, 62);
+    doc.text(dataGeracao, pageWidth - margin, 50, { align: 'right' });
+    
+    // Linha separadora sutil
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 75, pageWidth - margin, 75);
+  };
+
+  const addSummary = (doc: jsPDF, estatisticas: any, startY: number) => {
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPosition = startY + 25;
+    
+    // Seção RECEITAS
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(34, 197, 94); // Verde
+    doc.text('RECEITAS', margin, yPosition);
+    yPosition += 20;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Faturamento Bruto (Vendas de Produtos)', margin, yPosition);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(51, 65, 85);
+    doc.text(formatarMoeda(estatisticas.faturamentoTotal), pageWidth - margin, yPosition, { align: 'right' });
+    yPosition += 30;
+    
+    // Seção DESPESAS OPERACIONAIS
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(239, 68, 68); // Vermelho
+    doc.text('DESPESAS OPERACIONAIS', margin, yPosition);
+    yPosition += 20;
+    
+    // Frete
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('(-) Frete Total', margin, yPosition);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    doc.text(`- ${formatarMoeda(estatisticas.freteTotal)}`, pageWidth - margin, yPosition, { align: 'right' });
+    yPosition += 15;
+    
+    // Comissão
+    doc.text('(-) Comissão Total', margin, yPosition);
+    doc.text(`- ${formatarMoeda(estatisticas.comissaoTotal)}`, pageWidth - margin, yPosition, { align: 'right' });
+    yPosition += 40;
+    
+    // Linha separadora
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(margin, yPosition - 10, pageWidth - margin, yPosition - 10);
+    
+    // VALOR LÍQUIDO A RECEBER - destaque especial
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(51, 65, 85);
+    doc.text('VALOR LÍQUIDO A RECEBER', margin, yPosition);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(34, 197, 94); // Verde destacado
+    doc.text(formatarMoeda(estatisticas.lucroLiquidoTotal), pageWidth - margin, yPosition, { align: 'right' });
+    yPosition += 15;
+    
+    // Subtítulo explicativo
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('(Faturamento - Frete - Comissão)', margin, yPosition);
+    
+    return yPosition + 30;
+  };
+
+  const addFooter = (doc: jsPDF) => {
+    const margin = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Linha separadora
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(margin, pageHeight - 35, pageWidth - margin, pageHeight - 35);
+    
+    // Texto do rodapé
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.text('LECULGO - Sistema de Gerenciamento de Mercadorias', margin, pageHeight - 22);
+    doc.text(`Página 1`, pageWidth - margin, pageHeight - 22, { align: 'right' });
+  };
+
   const exportarPDF = () => {
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const margin = 20;
       const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 15;
-      let yPosition = 0; // Começar do topo
+      let yPosition = 0;
 
-      // Paleta de cores: Verde Esmeralda, profissional e limpa
-      const corEsmeralda = [46, 204, 113] as [number, number, number]; // Verde Esmeralda
-      const corTextoPrincipal = [52, 73, 94] as [number, number, number]; // Cinza escuro
-      const corTextoSecundario = [127, 140, 141] as [number, number, number]; // Cinza médio
-      const corFundoClaro = [249, 251, 251] as [number, number, number]; // Fundo quase branco
-      const corVermelhoDespesa = [231, 76, 60] as [number, number, number];
+      const clienteNome = clienteSelecionado === 'todos' 
+        ? 'Todos os clientes' 
+        : clientes?.find(c => c.id === clienteSelecionado)?.nome || 'N/A';
 
-      // --- CABEÇALHO ---
-      yPosition = 20;
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.setTextColor(...corTextoPrincipal);
-      doc.text('Relatório Financeiro', margin, yPosition);
-
-      yPosition += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(...corTextoSecundario);
-      const clienteNome = clienteSelecionado === 'todos' ? 'Todos os clientes' : clientes?.find(c => c.id === clienteSelecionado)?.nome || 'N/A';
-      doc.text(`Período de ${format(parseISO(periodo.inicio), 'dd/MM/yyyy')} a ${format(parseISO(periodo.fim), 'dd/MM/yyyy')}`, margin, yPosition);
-      doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth - margin, yPosition, { align: 'right' });
-      yPosition += 5;
-      doc.text(`Cliente: ${clienteNome}`, margin, yPosition);
-
-      // Linha separadora sutil
-      yPosition += 10;
-      doc.setDrawColor(236, 236, 236);
-      doc.setLineWidth(0.5);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 15;
-
-      // --- SEÇÃO DE RECEITAS ---
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(...corEsmeralda);
-      doc.text('RECEITAS', margin, yPosition);
-      yPosition += 10;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(...corTextoSecundario);
-      doc.text('Faturamento Bruto (Vendas de Produtos)', margin, yPosition);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(...corTextoPrincipal);
-      doc.text(formatarMoeda(estatisticas.faturamentoTotal), pageWidth - margin, yPosition, { align: 'right' });
-      yPosition += 15;
-
-      // --- SEÇÃO DE DESPESAS ---
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(...corVermelhoDespesa);
-      doc.text('DESPESAS OPERACIONAIS', margin, yPosition);
-      yPosition += 10;
-
-      // Frete
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(...corTextoSecundario);
-      doc.text('(-) Frete Total', margin, yPosition);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...corTextoPrincipal);
-      doc.text(`- ${formatarMoeda(estatisticas.freteTotal)}`, pageWidth - margin, yPosition, { align: 'right' });
-      yPosition += 8;
-
-      // Comissão
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-      doc.setTextColor(...corTextoSecundario);
-      doc.text('(-) Comissão Total', margin, yPosition);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...corTextoPrincipal);
-      doc.text(`- ${formatarMoeda(estatisticas.comissaoTotal)}`, pageWidth - margin, yPosition, { align: 'right' });
-      yPosition += 15;
-
-      // --- SEÇÃO DE RESULTADO ---
-      doc.setDrawColor(236, 236, 236);
-      doc.setLineWidth(0.5);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 12;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.setTextColor(...corTextoPrincipal);
-      doc.text('VALOR LÍQUIDO A RECEBER', margin, yPosition);
-      doc.setFontSize(14);
-      doc.setTextColor(...corEsmeralda);
-      doc.text(formatarMoeda(estatisticas.lucroLiquidoTotal), pageWidth - margin, yPosition, { align: 'right' });
-      yPosition += 8;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...corTextoSecundario);
-      doc.text('(Faturamento - Frete - Comissão)', margin, yPosition);
-
-      yPosition += 20;
+      addHeader(doc, periodo, clienteNome);
+      yPosition = addSummary(doc, estatisticas, 75);
 
       // --- TABELA DE VENDAS DETALHADAS ---
       if (vendasFiltradas.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(51, 65, 85);
+        doc.text('Detalhes das Vendas', margin, yPosition);
+        yPosition += 20;
+
         const tableData = vendasFiltradas.map(venda => [
           format(parseISO(venda.created_at), 'dd/MM/yy'),
-          (venda.clientes?.nome || 'N/A').substring(0, 22),
+          (venda.clientes?.nome || 'N/A').substring(0, 20),
           formatarMoeda(venda.total || 0),
           formatarMoeda(venda.frete || 0),
           formatarMoeda(venda.comissao_valor || 0),
           formatarMoeda((venda.total || 0) - (venda.frete || 0) - (venda.comissao_valor || 0))
         ]);
-
+      
         autoTable(doc, {
           startY: yPosition,
           head: [['Data', 'Cliente', 'Faturado', 'Frete', 'Comissão', 'Líquido']],
           body: tableData,
-          theme: 'plain',
+          theme: 'striped',
           headStyles: {
-            textColor: corEsmeralda,
+            fillColor: [71, 85, 105], // Cor mais sóbria
+            textColor: 255,
             fontStyle: 'bold',
             fontSize: 9,
-            halign: 'left',
-            cellPadding: { top: 2, right: 2, bottom: 2, left: 0 }
           },
-          bodyStyles: {
+          styles: {
             fontSize: 8,
-            textColor: corTextoPrincipal,
-            cellPadding: { top: 2, right: 2, bottom: 2, left: 0 }
-          },
-          alternateRowStyles: {
-            fillColor: corFundoClaro
+            cellPadding: { top: 6, right: 8, bottom: 6, left: 8 },
+            lineColor: [226, 232, 240],
+            lineWidth: 0.5,
           },
           columnStyles: {
-            0: { halign: 'left' },
-            1: { halign: 'left' },
-            2: { halign: 'left' },
-            3: { halign: 'left' },
-            4: { halign: 'left' },
-            5: { halign: 'left', fontStyle: 'bold', textColor: corTextoPrincipal }
+            0: { cellWidth: 60, halign: 'center', font: 'courier' },
+            1: { cellWidth: 'auto' },
+            2: { halign: 'right', cellWidth: 80, font: 'courier' },
+            3: { halign: 'right', cellWidth: 70, font: 'courier' },
+            4: { halign: 'right', cellWidth: 70, font: 'courier' },
+            5: { halign: 'right', cellWidth: 80, fontStyle: 'bold', font: 'courier' }
           },
-          margin: { left: margin, right: margin },
-          tableWidth: 'auto',
-          didDrawPage: (data) => {
-            // --- RODAPÉ ---
-            const pageCount = doc.getNumberOfPages();
-            doc.setFontSize(8);
-            doc.setTextColor(...corTextoSecundario);
-            doc.text(
-              'Sistema de Gestão Comercial',
-              data.settings.margin.left,
-              pageHeight - 10
-            );
-            doc.text(
-              `Página ${data.pageNumber} de ${pageCount}`,
-              pageWidth - data.settings.margin.right,
-              pageHeight - 10,
-              { align: 'right' }
-            );
-          }
+          didParseCell: (data) => {
+            if (data.section === 'body' && data.column.index === 5) {
+              const valor = parseFloat(data.cell.raw?.toString().replace(/[^0-9,-]+/g, "").replace(",", ".") || '0');
+              if (valor > 0) {
+                data.cell.styles.textColor = [34, 197, 94]; // Verde para lucro positivo
+              }
+            }
+          },
         });
+        yPosition = (doc as any).lastAutoTable.finalY + 30;
       }
 
-      // Salvar o arquivo
+      // --- ITENS POR VENDA - Design conforme segunda imagem ---
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(51, 65, 85);
+      doc.text('Itens por venda', margin, yPosition);
+      yPosition += 25;
+
+      vendasFiltradas.forEach((venda, index) => {
+        // Subtítulo com data e cliente (formato da segunda imagem)
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        const dataVenda = format(parseISO(venda.created_at), 'dd/MM/yy');
+        const clienteVenda = venda.clientes?.nome || 'N/A';
+        doc.text(`${dataVenda} - ${clienteVenda}`, margin, yPosition);
+        yPosition += 15;
+
+        const linhas = (venda.itens_venda || []).map((item) => {
+          const nome = item.produtos?.nome || 'Produto';
+          const qtd = item.quantidade || 0;
+          const preco = item.preco_unitario || 0;
+          const subtotal = item.subtotal || (qtd * preco);
+          
+          // Formatação conforme a segunda imagem
+          const qtdFormatada = formatarNumero(qtd, 0);
+          const precoFormatado = formatarMoeda(preco);
+          const qtdPreco = `${qtdFormatada} x ${precoFormatado}`;
+
+          return [nome, qtdPreco, formatarMoeda(subtotal)];
+        });
+
+        if (linhas.length > 0) {
+          autoTable(doc, {
+            head: [['Produto', 'Qtd x Preço', 'Subtotal']],
+            body: linhas,
+            startY: yPosition,
+            theme: 'grid',
+            headStyles: { 
+              fillColor: [248, 250, 252],
+              textColor: [71, 85, 105],
+              fontStyle: 'bold',
+              fontSize: 9,
+              halign: 'center'
+            },
+            styles: {
+              fontSize: 8,
+              cellPadding: { top: 4, right: 6, bottom: 4, left: 6 },
+              lineWidth: 0.5,
+              lineColor: [226, 232, 240],
+            },
+            columnStyles: {
+              0: { cellWidth: 'auto', halign: 'left' },
+              1: { cellWidth: 120, halign: 'center', font: 'courier' },
+              2: { cellWidth: 80, halign: 'right', font: 'courier' },
+            },
+          });
+          yPosition = (doc as any).lastAutoTable.finalY + 15;
+        }
+      });
+
+      addFooter(doc);
+
       const nomeArquivo = `relatorio-financeiro-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`;
       doc.save(nomeArquivo);
 
@@ -732,12 +816,7 @@ export default function RelatoriosPage() {
                       {cliente.endereco && (
                         <p><strong>Endereço:</strong> {cliente.endereco}</p>
                       )}
-                      {cliente.cidade && cliente.estado && (
-                        <p><strong>Cidade/Estado:</strong> {cliente.cidade}/{cliente.estado}</p>
-                      )}
-                      {cliente.cep && (
-                        <p><strong>CEP:</strong> {cliente.cep}</p>
-                      )}
+                      {/* Campos opcionais omitidos pois não existem no tipo Cliente */}
                       {comprasNoPeriodo && (
                         <div className="text-green-600 font-medium mt-2 pt-2 border-t">
                           <p>Compras no período: {comprasNoPeriodo.compras}</p>

@@ -3,7 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit2, Trash2, Plus, Eye } from 'lucide-react';
+import { Edit2, Trash2, Plus, Eye, FileText } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+// Tipagem para usar autoTable com jsPDF
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+    lastAutoTable: { finalY: number };
+  }
+}
 import { useVendas, VendaCompleta } from '@/hooks/useVendas';
 import { VendaForm } from '@/components/VendaForm';
 import { QuickActions } from '@/components/QuickActions';
@@ -83,6 +93,106 @@ function VendasPage() {
   const handleCancelEdit = () => {
     if (!isMountedRef.current) return;
     setEditingVenda(null);
+  };
+
+  const formatarMoeda = (valor: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor || 0);
+  const formatarNumero = (valor: number) => {
+    if (Number.isInteger(valor)) return String(valor);
+    return valor.toFixed(2).replace('.', ',');
+  };
+
+  const exportarPDFDaVenda = (venda: VendaCompleta) => {
+    try {
+      const doc = new jsPDF();
+      const margin = 15;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let y = 20;
+
+      // Cabeçalho
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('Recibo de Compra', margin, y);
+      y += 8;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Cliente: ${venda.clientes?.nome || 'Cliente não informado'}`, margin, y);
+      doc.text(`Data: ${new Date(venda.created_at).toLocaleDateString('pt-BR')}`, pageWidth - margin, y, { align: 'right' });
+      y += 6;
+      doc.text(`ID da Venda: ${venda.id}`, margin, y);
+
+      // Linha
+      y += 8;
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 10;
+
+      // Título Itens
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Itens', margin, y);
+      y += 6;
+
+      const linhas = venda.itens_venda.map((item) => {
+        const nome = item.produtos?.nome || 'Produto';
+        const qtd = item.quantidade || 0;
+        const preco = item.preco_unitario || 0;
+        const subtotal = item.subtotal || (qtd * preco);
+        // Formato solicitado: "GOIABA 60X50 = 3000"
+        return [
+          nome,
+          `${formatarNumero(qtd)} X ${formatarNumero(preco)}`,
+          `= ${formatarNumero(subtotal)}`
+        ];
+      });
+
+      autoTable(doc, {
+        head: [['Produto', 'Qtd x Preço', 'Subtotal']],
+        body: linhas,
+        startY: y,
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: { top: 2, right: 2, bottom: 2, left: 0 } },
+        headStyles: { fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { cellWidth: 50 },
+          2: { halign: 'right', cellWidth: 30 },
+        },
+        margin: { left: margin, right: margin },
+      });
+
+      y = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 10 : y + 10;
+
+      // Resumo de totais
+      const totalProdutos = venda.total || 0;
+      const frete = venda.frete || 0;
+      const desconto = venda.desconto || 0;
+      const comissao = venda.comissao_valor || 0;
+      const totalGeral = totalProdutos - frete - comissao + desconto;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('Resumo', margin, y);
+      y += 6;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Subtotal Produtos: ${formatarMoeda(totalProdutos)}`, margin, y);
+      y += 5;
+      doc.text(`Frete: ${formatarMoeda(frete)}`, margin, y);
+      y += 5;
+      doc.text(`Desconto: ${formatarMoeda(desconto)}`, margin, y);
+      y += 5;
+      doc.text(`Comissão: ${formatarMoeda(comissao)}`, margin, y);
+      y += 8;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text(`TOTAL GERAL: ${formatarMoeda(totalGeral)}`, margin, y);
+
+      doc.save(`recibo_${venda.clientes?.nome || 'cliente'}_${new Date(venda.created_at).toISOString().slice(0,10)}.pdf`);
+    } catch (error) {
+      console.error('Erro ao gerar PDF da venda:', error);
+      alert('Erro ao gerar o PDF desta venda.');
+    }
   };
 
   return (
@@ -224,7 +334,13 @@ function VendasPage() {
         <Dialog open={!!viewingVenda} onOpenChange={closeVendaModal}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Detalhes da Venda</DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle>Detalhes da Venda</DialogTitle>
+                <Button variant="outline" size="sm" onClick={() => viewingVenda && exportarPDFDaVenda(viewingVenda)}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar PDF
+                </Button>
+              </div>
             </DialogHeader>
             <Card>
               <CardContent>

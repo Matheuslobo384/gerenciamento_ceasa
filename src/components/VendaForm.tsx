@@ -346,9 +346,10 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                   <Label>Qtd</Label>
                   <Input
                     type="number"
-                    min="0" // Permitir 0 temporariamente
-                    value={item.quantidade === 0 ? '' : item.quantidade} // Exibir string vazia se for 0
+                    min="0"
+                    value={item.quantidade === 0 ? '' : item.quantidade}
                     onChange={(e) => updateItem(item.id, 'quantidade', e.target.value === '' ? 0 : parseInt(e.target.value, 10) || 0)}
+                    className="text-center font-mono" // Centralizar e usar fonte monoespaçada
                   />
                 </div>
 
@@ -359,6 +360,7 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                     step="0.01"
                     value={item.preco_unitario}
                     onChange={(e) => updateItem(item.id, 'preco_unitario', parseFloat(e.target.value) || 0)}
+                    className="text-right font-mono" // Alinhar à direita e usar fonte monoespaçada
                   />
                 </div>
 
@@ -367,7 +369,7 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                   <Input
                     value={`R$ ${(item.quantidade * item.preco_unitario).toFixed(2)}`}
                     readOnly
-                    className="bg-muted"
+                    className="bg-muted text-right font-mono font-semibold" // Alinhar à direita, fonte monoespaçada e negrito
                   />
                 </div>
 
