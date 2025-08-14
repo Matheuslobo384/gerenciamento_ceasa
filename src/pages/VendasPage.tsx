@@ -19,10 +19,12 @@ import { VendaForm } from '@/components/VendaForm';
 import { QuickActions } from '@/components/QuickActions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useFreteConfig } from '@/hooks/useFreteConfig';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function VendasPage() {
   const { vendas, createVenda, updateVenda, deleteVenda, isLoading } = useVendas();
   const { config: freteConfig } = useFreteConfig();
+  const isMobile = useIsMobile();
   const [viewingVenda, setViewingVenda] = useState<VendaCompleta | null>(null);
   const [showVendaForm, setShowVendaForm] = useState(false);
   const [editingVenda, setEditingVenda] = useState<VendaCompleta | null>(null);
@@ -211,7 +213,7 @@ function VendasPage() {
 
       {showVendaForm && (
         <Dialog open={showVendaForm} onOpenChange={setShowVendaForm}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Registrar Nova Venda</DialogTitle>
             </DialogHeader>
@@ -226,7 +228,7 @@ function VendasPage() {
 
       {editingVenda && (
         <Dialog open={!!editingVenda} onOpenChange={() => setEditingVenda(null)}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Venda</DialogTitle>
             </DialogHeader>
@@ -252,79 +254,119 @@ function VendasPage() {
               Nenhuma venda encontrada
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Total Cliente</TableHead>
-                  <TableHead>Detalhes</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Lista para Mobile */}
+              <div className="sm:hidden space-y-3">
                 {vendas.map((venda) => {
                   const totalCliente = venda.total - (venda.frete || 0) - (venda.comissao_valor || 0) + (venda.desconto || 0);
                   return (
-                  <TableRow key={venda.id}>
-                    <TableCell className="font-medium">
-                      {venda.clientes?.nome || 'Cliente não informado'}
-                    </TableCell>
-                    <TableCell className="font-bold text-green-600">R$ {totalCliente.toFixed(2)}</TableCell>
-                    <TableCell>
-                      <div className="text-sm space-y-1">
-                        <div>Produtos: R$ {venda.total.toFixed(2)}</div>
-                        <div>Frete: {venda.frete ? (venda.frete === 0 ? 'Grátis' : `R$ ${venda.frete.toFixed(2)}`) : 'R$ 0,00'}
-                          {venda.tipo_frete && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              ({venda.tipo_frete === 'por_produto' ? 'Por Produto' : 
-                                venda.tipo_frete === 'por_pedido' ? 'Por Pedido' : 
-                                venda.tipo_frete === 'por_quantidade' ? 'Por Quantidade' : 
-                                venda.tipo_frete})
-                            </span>
-                          )}
+                    <div key={venda.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm text-muted-foreground">Cliente</div>
+                          <div className="font-semibold leading-tight">{venda.clientes?.nome || 'Cliente não informado'}</div>
                         </div>
-                        <div>Comissão: R$ {(venda.comissao_valor || 0).toFixed(2)}</div>
+                        <div className="text-right">
+                          <div className="text-sm text-muted-foreground">Total</div>
+                          <div className="font-bold text-green-600">{formatarMoeda(totalCliente)}</div>
+                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={venda.status === 'pago' ? 'default' : venda.status === 'pendente' ? 'secondary' : 'destructive'}>
-                        {venda.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{new Date(venda.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setViewingVenda(venda)}
-                        >
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                        <div className="text-muted-foreground">Produtos</div>
+                        <div className="text-right">{formatarMoeda(venda.total)}</div>
+                        <div className="text-muted-foreground">Frete</div>
+                        <div className="text-right">{venda.frete ? (venda.frete === 0 ? 'Grátis' : formatarMoeda(venda.frete)) : 'R$ 0,00'}</div>
+                        <div className="text-muted-foreground">Comissão</div>
+                        <div className="text-right">{formatarMoeda(venda.comissao_valor || 0)}</div>
+                        <div className="text-muted-foreground">Data</div>
+                        <div className="text-right">{new Date(venda.created_at).toLocaleDateString('pt-BR')}</div>
+                        <div className="text-muted-foreground">Status</div>
+                        <div className="text-right">
+                          <Badge variant={venda.status === 'pago' ? 'default' : venda.status === 'pendente' ? 'secondary' : 'destructive'}>
+                            {venda.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setViewingVenda(venda)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(venda)}
-                        >
+                        <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => handleEdit(venda)}>
                           <Edit2 className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(venda.id)}
-                          disabled={deleteVenda.isPending}
-                        >
+                        <Button variant="destructive" size="sm" className="h-9 w-9 p-0" onClick={() => handleDelete(venda.id)} disabled={deleteVenda.isPending}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* Tabela para Desktop */}
+              <div className="hidden sm:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente</TableHead>
+                      <TableHead>Total Cliente</TableHead>
+                      <TableHead>Detalhes</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {vendas.map((venda) => {
+                      const totalCliente = venda.total - (venda.frete || 0) - (venda.comissao_valor || 0) + (venda.desconto || 0);
+                      return (
+                        <TableRow key={venda.id}>
+                          <TableCell className="font-medium">
+                            {venda.clientes?.nome || 'Cliente não informado'}
+                          </TableCell>
+                          <TableCell className="font-bold text-green-600">{formatarMoeda(totalCliente)}</TableCell>
+                          <TableCell>
+                            <div className="text-sm space-y-1">
+                              <div>Produtos: {formatarMoeda(venda.total)}</div>
+                              <div>Frete: {venda.frete ? (venda.frete === 0 ? 'Grátis' : formatarMoeda(venda.frete)) : 'R$ 0,00'}
+                                {venda.tipo_frete && (
+                                  <span className="text-xs text-muted-foreground ml-1">
+                                    ({venda.tipo_frete === 'por_produto' ? 'Por Produto' : 
+                                      venda.tipo_frete === 'por_pedido' ? 'Por Pedido' : 
+                                      venda.tipo_frete === 'por_quantidade' ? 'Por Quantidade' : 
+                                      venda.tipo_frete})
+                                  </span>
+                                )}
+                              </div>
+                              <div>Comissão: {formatarMoeda(venda.comissao_valor || 0)}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={venda.status === 'pago' ? 'default' : venda.status === 'pendente' ? 'secondary' : 'destructive'}>
+                              {venda.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(venda.created_at).toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" onClick={() => setViewingVenda(venda)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button variant="outline" size="sm" onClick={() => handleEdit(venda)}>
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => handleDelete(venda.id)} disabled={deleteVenda.isPending}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -332,7 +374,7 @@ function VendasPage() {
       {/* Modal de Visualização da Venda */}
       {viewingVenda && (
         <Dialog open={!!viewingVenda} onOpenChange={closeVendaModal}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="sm:max-w-2xl w-[95vw]">
             <DialogHeader>
               <div className="flex items-center justify-between">
                 <DialogTitle>Detalhes da Venda</DialogTitle>
@@ -345,7 +387,7 @@ function VendasPage() {
             <Card>
               <CardContent>
                 <div className="space-y-4 mb-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <strong>Cliente:</strong> {viewingVenda.clientes?.nome || 'Cliente não informado'}
                     </div>

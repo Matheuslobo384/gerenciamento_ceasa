@@ -7,12 +7,14 @@ import { Edit2, Trash2, Plus, Eye } from 'lucide-react';
 import { useClientes, Cliente } from '@/hooks/useClientes';
 import { ClienteForm } from '@/components/ClienteForm';
 import { QuickActions } from '@/components/QuickActions';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 function ClientesPage() {
   const { clientes, isLoading, createCliente, updateCliente, deleteCliente } = useClientes();
   const [showForm, setShowForm] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | undefined>();
   const [viewingCliente, setViewingCliente] = useState<Cliente | undefined>();
+  const isMobile = useIsMobile();
 
   const handleCreate = (cliente: {
     nome: string;
@@ -157,60 +159,92 @@ function ClientesPage() {
               Nenhum cliente cadastrado
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Comissão (%)</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              {/* Lista para Mobile */}
+              <div className="sm:hidden space-y-3">
                 {clientes.map((cliente) => (
-                  <TableRow key={cliente.id}>
-                    <TableCell className="font-medium">{cliente.nome}</TableCell>
-                    <TableCell>{cliente.email || '-'}</TableCell>
-                    <TableCell>{cliente.telefone || '-'}</TableCell>
-                    <TableCell>
-                      {cliente.comissao_personalizada ? `${cliente.comissao_personalizada}%` : 'Padrão'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={cliente.ativo ? 'default' : 'secondary'}>
-                        {cliente.ativo ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setViewingCliente(cliente)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditingCliente(cliente)}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(cliente.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                  <div key={cliente.id} className="rounded-lg border bg-card p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Nome</div>
+                        <div className="font-semibold leading-tight">{cliente.nome}</div>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <div className="text-right">
+                        <div className="text-sm text-muted-foreground">Status</div>
+                        <Badge variant={cliente.ativo ? 'default' : 'secondary'}>
+                          {cliente.ativo ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                      <div className="text-muted-foreground">Email</div>
+                      <div className="text-right">{cliente.email || '-'}</div>
+                      <div className="text-muted-foreground">Telefone</div>
+                      <div className="text-right">{cliente.telefone || '-'}</div>
+                      <div className="text-muted-foreground">Comissão</div>
+                      <div className="text-right">{cliente.comissao_personalizada ? `${cliente.comissao_personalizada}%` : 'Padrão'}</div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setViewingCliente(cliente)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => setEditingCliente(cliente)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="destructive" size="sm" className="h-9 w-9 p-0" onClick={() => handleDelete(cliente.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              {/* Tabela para Desktop */}
+              <div className="hidden sm:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Telefone</TableHead>
+                      <TableHead>Comissão (%)</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {clientes.map((cliente) => (
+                      <TableRow key={cliente.id}>
+                        <TableCell className="font-medium">{cliente.nome}</TableCell>
+                        <TableCell>{cliente.email || '-'}</TableCell>
+                        <TableCell>{cliente.telefone || '-'}</TableCell>
+                        <TableCell>
+                          {cliente.comissao_personalizada ? `${cliente.comissao_personalizada}%` : 'Padrão'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={cliente.ativo ? 'default' : 'secondary'}>
+                            {cliente.ativo ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setViewingCliente(cliente)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => setEditingCliente(cliente)}>
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => handleDelete(cliente.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
