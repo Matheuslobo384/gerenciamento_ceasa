@@ -136,7 +136,7 @@ function ConfiguracoesPage() {
 
             <div className="border-t pt-4">
               <p className="text-sm text-muted-foreground">
-                <strong>Prioridade:</strong> Venda > Cliente > Personalizada > Padrão
+                <strong>Prioridade:</strong> Venda {'>'} Cliente {'>'} Personalizada {'>'} Padrão
               </p>
             </div>
           </CardContent>

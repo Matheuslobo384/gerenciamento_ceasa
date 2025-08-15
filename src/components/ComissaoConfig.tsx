@@ -96,7 +96,7 @@ export function ComissaoConfig({ onSave, isLoading, initialConfig }: ComissaoCon
                 </ul>
                 <div className="mt-2 pt-2 border-t border-blue-200">
                   <p className="font-medium">Prioridade de aplicação:</p>
-                  <p className="text-xs">Venda > Cliente > Personalizada > Padrão</p>
+                  <p className="text-xs">Venda {'>'} Cliente {'>'} Personalizada {'>'} Padrão</p>
                 </div>
               </div>
             </div>
