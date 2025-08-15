@@ -438,11 +438,122 @@ export function useVendas() {
     }
   });
 
+  // Função para verificar e corrigir frete nas vendas
+  const verificarFreteVendas = useMutation({
+    mutationFn: async () => {
+      console.log('🔍 useVendas: Iniciando verificação de frete nas vendas...');
+      
+      try {
+        // Buscar todas as vendas com itens
+        const { data: vendasComItens, error: fetchError } = await (supabase as any)
+          .from('vendas')
+          .select(`
+            *,
+            itens_venda (
+              *,
+              produtos:produto_id (*)
+            )
+          `);
+        
+        if (fetchError) {
+          console.error('❌ useVendas: Erro ao buscar vendas:', fetchError);
+          throw fetchError;
+        }
+        
+        console.log(`📊 useVendas: Encontradas ${vendasComItens?.length || 0} vendas para verificação`);
+        
+        let vendasCorrigidas = 0;
+        
+        // Verificar cada venda
+        for (const venda of vendasComItens || []) {
+          if (venda.itens_venda && venda.itens_venda.length > 0) {
+            // Calcular frete correto baseado nos itens
+            const itensComProdutos = venda.itens_venda.map((item: any) => ({
+              produto_id: item.produto_id,
+              quantidade: item.quantidade,
+              preco_unitario: item.preco_unitario,
+              produto: item.produtos
+            }));
+            
+            // Importar função de cálculo de frete
+            const { calcularFrete } = await import('@/lib/frete');
+            
+            // Buscar configuração de frete atual
+            const { data: configData } = await (supabase as any)
+              .from('configuracoes')
+              .select('*')
+              .in('chave', ['frete_fixo', 'tipo_calculo_frete', 'frete_por_quantidade']);
+            
+            const configMap = (configData || []).reduce((acc: any, item: any) => {
+              acc[item.chave] = item.valor;
+              return acc;
+            }, {});
+            
+            const freteConfig = {
+              fretePadrao: Number(configMap.frete_fixo) || 15,
+              tipoCalculo: configMap.tipo_calculo_frete || 'por_pedido',
+              fretePorQuantidade: Number(configMap.frete_por_quantidade) || 5
+            };
+            
+            const subtotal = itensComProdutos.reduce((acc: any, item: any) => 
+              acc + (item.quantidade * item.preco_unitario), 0
+            );
+            
+            const calculoFrete = calcularFrete(itensComProdutos, freteConfig, subtotal);
+            
+            // Verificar se o frete precisa ser corrigido
+            if (Math.abs((venda as any).frete - calculoFrete.valorFrete) > 0.01) {
+              console.log(`🔄 useVendas: Corrigindo frete da venda ${(venda as any).id}: ${(venda as any).frete} → ${calculoFrete.valorFrete}`);
+              
+              const { error: updateError } = await (supabase as any)
+                .from('vendas')
+                .update({
+                  frete: calculoFrete.valorFrete,
+                  tipo_frete: calculoFrete.tipoFrete
+                })
+                .eq('id', (venda as any).id);
+              
+              if (updateError) {
+                console.error(`❌ useVendas: Erro ao corrigir frete da venda ${(venda as any).id}:`, updateError);
+              } else {
+                vendasCorrigidas++;
+              }
+            }
+          }
+        }
+        
+        console.log(`✅ useVendas: Verificação concluída. ${vendasCorrigidas} vendas corrigidas`);
+        return { vendasVerificadas: vendasComItens?.length || 0, vendasCorrigidas };
+        
+      } catch (error) {
+        console.error('💥 useVendas: Erro durante verificação de frete:', error);
+        throw error;
+      }
+    },
+    onSuccess: (result) => {
+      console.log('🔄 useVendas: Invalidando cache de vendas após verificação');
+      queryClient.invalidateQueries({ queryKey: ['vendas'] });
+      toast({ 
+        title: 'Verificação de frete concluída!', 
+        description: `${result.vendasCorrigidas} vendas corrigidas de ${result.vendasVerificadas} verificadas` 
+      });
+    },
+    onError: (error: any) => {
+      console.error('🚨 useVendas: Erro na verificação de frete:', error);
+      toast({ 
+        title: 'Erro na verificação de frete', 
+        description: error?.message || 'Erro desconhecido',
+        variant: 'destructive' 
+      });
+    }
+  });
+
   return {
     vendas,
     isLoading,
     createVenda,
     updateVenda,
-    deleteVenda
+    deleteVenda,
+    verificarFreteVendas
   };
 }

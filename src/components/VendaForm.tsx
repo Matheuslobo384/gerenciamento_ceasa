@@ -453,8 +453,16 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                   {valorFrete === 0 ? 'Grátis' : `R$ ${valorFrete.toFixed(2)}`}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {formData.usar_frete_manual ? 'Frete definido manualmente' : calculoFrete.detalhes}
+                  {formData.usar_frete_manual ? 
+                    'Frete definido manualmente' : 
+                    calculoFrete.detalhes
+                  }
                 </div>
+                {!formData.usar_frete_manual && freteConfig && (
+                  <div className="text-xs text-blue-600">
+                    Config: {freteConfig.tipoCalculo} | Padrão: R$ {freteConfig.fretePadrao.toFixed(2)}
+                  </div>
+                )}
               </div>
             </div>
             

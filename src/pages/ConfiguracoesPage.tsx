@@ -2,12 +2,15 @@ import { FreteConfig } from '@/components/FreteConfig';
 import { ComissaoConfig } from '@/components/ComissaoConfig';
 import { useFreteConfig } from '@/hooks/useFreteConfig';
 import { useComissaoConfig } from '@/hooks/useComissaoConfig';
+import { useVendas } from '@/hooks/useVendas';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Truck, Package, Percent } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Settings, Truck, Package, Percent, RefreshCw } from 'lucide-react';
 
 function ConfiguracoesPage() {
   const { config: freteConfig, updateConfig: updateFreteConfig, isLoading: freteLoading } = useFreteConfig();
   const { config: comissaoConfig, updateConfig: updateComissaoConfig, isLoading: comissaoLoading } = useComissaoConfig();
+  const { verificarFreteVendas } = useVendas();
 
   const handleSaveFreteConfig = (newConfig: any) => {
     updateFreteConfig.mutate(newConfig);
@@ -15,6 +18,10 @@ function ConfiguracoesPage() {
 
   const handleSaveComissaoConfig = (newConfig: any) => {
     updateComissaoConfig.mutate(newConfig);
+  };
+
+  const handleVerificarFrete = () => {
+    verificarFreteVendas.mutate();
   };
 
   return (
@@ -84,6 +91,31 @@ function ConfiguracoesPage() {
                 <strong>Nota:</strong> Se um produto não tiver frete personalizado definido, 
                 o sistema usará o frete padrão configurado.
               </p>
+              <div className="mt-4">
+                <Button 
+                  onClick={handleVerificarFrete}
+                  disabled={verificarFreteVendas.isPending}
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                >
+                  {verificarFreteVendas.isPending ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Verificando...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Verificar e Corrigir Frete nas Vendas
+                    </>
+                  )}
+                </Button>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Este botão verifica todas as vendas existentes e corrige o frete 
+                  baseado nas configurações atuais e fretes personalizados dos produtos.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
