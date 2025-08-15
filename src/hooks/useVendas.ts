@@ -29,6 +29,14 @@ export interface ItemVenda {
   created_at: string;
 }
 
+// Interface para inserção de itens (sem subtotal - calculado automaticamente)
+export interface ItemVendaInsert {
+  venda_id: string;
+  produto_id: string;
+  quantidade: number;
+  preco_unitario: number;
+}
+
 export interface VendaCompleta extends Venda {
   clientes?: { 
     nome: string;
@@ -124,11 +132,13 @@ export function useVendas() {
     
         // Inserir itens se existirem
         if (itens && itens.length > 0) {
-          const itensParaInserir = itens.map((item: any) => ({
+          // Usar interface específica para inserção (sem subtotal)
+          const itensParaInserir: ItemVendaInsert[] = itens.map((item: any) => ({
             venda_id: venda.id,
             produto_id: item.produto_id,
             quantidade: item.quantidade,
             preco_unitario: item.preco_unitario
+            // subtotal é calculado automaticamente pelo banco de dados
           }));
     
           addLog('info', '📦 Inserindo itens da venda', {
@@ -136,7 +146,7 @@ export function useVendas() {
             itens: itensParaInserir
           });
     
-          // Inserir SEM enviar subtotal (coluna gerada no banco)
+          // Inserir SEM enviar subtotal (coluna gerada automaticamente no banco)
           const { error: itensError } = await (supabase as any)
             .from('itens_venda')
             .insert(itensParaInserir);
@@ -216,67 +226,120 @@ export function useVendas() {
         throw vendaError;
       }
       
-      // Remover itens antigos
-      console.log('useVendas: Removendo itens antigos da venda...');
-      const { error: deleteError } = await (supabase as any)
+      // Buscar itens existentes da venda
+      console.log('useVendas: Buscando itens existentes da venda...');
+      const { data: itensExistentes, error: fetchError } = await (supabase as any)
         .from('itens_venda')
-        .delete()
+        .select('*')
         .eq('venda_id', id);
       
-      if (deleteError) {
-        console.error('useVendas: Erro ao remover itens antigos:', deleteError);
-        throw deleteError;
+      if (fetchError) {
+        console.error('useVendas: Erro ao buscar itens existentes:', fetchError);
+        throw fetchError;
       }
       
-      // Criar novos itens
-      const itensComSubtotal = itens.map(item => ({
-        venda_id: id,
-        produto_id: item.produto_id,
-        quantidade: item.quantidade,
-        preco_unitario: item.preco_unitario,
-        subtotal: item.quantidade * item.preco_unitario
-      }));
-
-      console.log('useVendas: Criando novos itens da venda (com subtotal):', itensComSubtotal);
-
-      const { error: itensInsertError1 } = await (supabase as any)
-        .from('itens_venda')
-        .insert(itensComSubtotal);
-
-      // Fallback para ausência da coluna subtotal
-      if (itensInsertError1 && /column .*subtotal.* does not exist/i.test(itensInsertError1.message || '')) {
-        console.warn('useVendas: Coluna subtotal não existe em itens_venda. Tentando inserir sem subtotal...');
-        const itensSemSubtotal = itens.map(item => ({
-          venda_id: id,
-          produto_id: item.produto_id,
-          quantidade: item.quantidade,
-          preco_unitario: item.preco_unitario,
-        }));
-        const { error: itensInsertError2 } = await (supabase as any)
-          .from('itens_venda')
-          .insert(itensSemSubtotal);
-
-        if (itensInsertError2) {
-          console.error('useVendas: Erro ao criar itens (fallback sem subtotal):', itensInsertError2);
-          throw itensInsertError2;
+      console.log('useVendas: Itens existentes encontrados:', itensExistentes?.length || 0);
+      
+      // Processar itens para atualização inteligente
+      const itensParaProcessar = itens || [];
+      const itensExistentesMap = new Map(
+        itensExistentes?.map(item => [item.produto_id, item]) || []
+      );
+      
+      const itensParaAtualizar: any[] = [];
+      const itensParaInserir: ItemVendaInsert[] = [];
+      const itensParaRemover: string[] = [];
+      
+      // Identificar itens que precisam ser atualizados, inseridos ou removidos
+      itensParaProcessar.forEach(novoItem => {
+        const itemExistente = itensExistentesMap.get(novoItem.produto_id);
+        
+        if (itemExistente) {
+          // Item existe - verificar se precisa atualizar
+          if (itemExistente.quantidade !== novoItem.quantidade || 
+              itemExistente.preco_unitario !== novoItem.preco_unitario) {
+            itensParaAtualizar.push({
+              id: itemExistente.id,
+              quantidade: novoItem.quantidade,
+              preco_unitario: novoItem.preco_unitario
+            });
+          }
+          // Marcar como processado
+          itensExistentesMap.delete(novoItem.produto_id);
+        } else {
+          // Item novo - inserir
+          itensParaInserir.push({
+            venda_id: id,
+            produto_id: novoItem.produto_id,
+            quantidade: novoItem.quantidade,
+            preco_unitario: novoItem.preco_unitario
+          });
         }
-      } else if (itensInsertError1) {
-        console.error('useVendas: Erro ao criar novos itens da venda:', itensInsertError1);
-        throw itensInsertError1;
+      });
+      
+      // Itens que não estão mais na lista - remover
+      itensExistentesMap.forEach(item => {
+        itensParaRemover.push(item.id);
+      });
+      
+      console.log('useVendas: Operações necessárias:', {
+        atualizar: itensParaAtualizar.length,
+        inserir: itensParaInserir.length,
+        remover: itensParaRemover.length
+      });
+      
+      // Executar operações de forma otimizada
+      
+      // 1. Remover itens que não existem mais
+      if (itensParaRemover.length > 0) {
+        console.log('useVendas: Removendo itens não mais necessários...');
+        const { error: deleteError } = await (supabase as any)
+          .from('itens_venda')
+          .delete()
+          .in('id', itensParaRemover);
+        
+        if (deleteError) {
+          console.error('useVendas: Erro ao remover itens:', deleteError);
+          throw deleteError;
+        }
+        console.log('useVendas: Itens removidos:', itensParaRemover.length);
       }
       
-      console.log('useVendas: Criando novos itens da venda (sem subtotal):', itensParaInserir);
-
-      const { error: itensInsertError } = await (supabase as any)
-        .from('itens_venda')
-        .insert(itensParaInserir);
-
-      if (itensInsertError) {
-        console.error('useVendas: Erro ao criar novos itens da venda:', itensInsertError);
-        throw itensInsertError;
+      // 2. Atualizar itens existentes que mudaram
+      if (itensParaAtualizar.length > 0) {
+        console.log('useVendas: Atualizando itens existentes...');
+        for (const item of itensParaAtualizar) {
+          const { error: updateError } = await (supabase as any)
+            .from('itens_venda')
+            .update({
+              quantidade: item.quantidade,
+              preco_unitario: item.preco_unitario
+            })
+            .eq('id', item.id);
+          
+          if (updateError) {
+            console.error('useVendas: Erro ao atualizar item:', updateError);
+            throw updateError;
+          }
+        }
+        console.log('useVendas: Itens atualizados:', itensParaAtualizar.length);
       }
       
-      console.log('useVendas: Venda e itens atualizados com sucesso');
+      // 3. Inserir novos itens
+      if (itensParaInserir.length > 0) {
+        console.log('useVendas: Inserindo novos itens...');
+        const { error: insertError } = await (supabase as any)
+          .from('itens_venda')
+          .insert(itensParaInserir);
+        
+        if (insertError) {
+          console.error('useVendas: Erro ao inserir novos itens:', insertError);
+          throw insertError;
+        }
+        console.log('useVendas: Novos itens inseridos:', itensParaInserir.length);
+      }
+      
+      console.log('useVendas: Venda e itens atualizados com sucesso (preservando itens existentes)');
       return vendaAtualizada;
     },
     onSuccess: () => {
