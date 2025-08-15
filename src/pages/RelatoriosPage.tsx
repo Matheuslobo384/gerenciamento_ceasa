@@ -31,6 +31,11 @@ interface PeriodoFiltro {
   fim: string;
 }
 
+interface DataHoraPersonalizada {
+  data: string;
+  hora: string;
+}
+
 export default function RelatoriosPage() {
   const { vendas, isLoading: vendasLoading } = useVendas();
   const { produtos, isLoading: produtosLoading } = useProdutos();
@@ -43,6 +48,10 @@ export default function RelatoriosPage() {
   
   const [tipoRelatorio, setTipoRelatorio] = useState<'geral' | 'vendas' | 'produtos' | 'clientes'>('geral');
   const [clienteSelecionado, setClienteSelecionado] = useState<string>('todos');
+  const [dataHoraPersonalizada, setDataHoraPersonalizada] = useState<DataHoraPersonalizada>({
+    data: format(new Date(), 'yyyy-MM-dd'),
+    hora: format(new Date(), 'HH:mm')
+  });
 
   // Filtrar vendas por período e cliente
   const vendasFiltradas = useMemo(() => {
@@ -160,7 +169,7 @@ export default function RelatoriosPage() {
     
     const periodoTexto = `Período de ${format(parseISO(periodo.inicio), 'dd/MM/yyyy')} a ${format(parseISO(periodo.fim), 'dd/MM/yyyy')}`;
     const clienteTexto = `Cliente: ${clienteNome}`;
-    const dataGeracao = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
+    const dataGeracao = `Gerado em: ${format(parseISO(dataHoraPersonalizada.data), 'dd/MM/yyyy')} às ${dataHoraPersonalizada.hora}`;
     
     doc.text(periodoTexto, margin, 50);
     doc.text(clienteTexto, margin, 62);
@@ -412,7 +421,7 @@ export default function RelatoriosPage() {
       const clienteNome = clienteSelecionado === 'todos' ? 'Todos os clientes' : clientes?.find(c => c.id === clienteSelecionado)?.nome || 'N/A';
       csvData.push(['Período de', format(parseISO(periodo.inicio), 'dd/MM/yyyy'), 'a', format(parseISO(periodo.fim), 'dd/MM/yyyy')]);
       csvData.push(['Cliente selecionado', clienteNome]);
-      csvData.push(['Data de Geração', format(new Date(), 'dd/MM/yyyy HH:mm:ss')]);
+      csvData.push(['Data de Geração', `${format(parseISO(dataHoraPersonalizada.data), 'dd/MM/yyyy')} às ${dataHoraPersonalizada.hora}`]);
       csvData.push([]); // Linha em branco
 
       // Processar cada venda individualmente
@@ -513,7 +522,7 @@ export default function RelatoriosPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <Label htmlFor="inicio">Data Início</Label>
               <Input
@@ -530,6 +539,24 @@ export default function RelatoriosPage() {
                 type="date"
                 value={periodo.fim}
                 onChange={(e) => setPeriodo(prev => ({ ...prev, fim: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="dataPersonalizada">Data do Relatório</Label>
+              <Input
+                id="dataPersonalizada"
+                type="date"
+                value={dataHoraPersonalizada.data}
+                onChange={(e) => setDataHoraPersonalizada(prev => ({ ...prev, data: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="horaPersonalizada">Hora do Relatório</Label>
+              <Input
+                id="horaPersonalizada"
+                type="time"
+                value={dataHoraPersonalizada.hora}
+                onChange={(e) => setDataHoraPersonalizada(prev => ({ ...prev, hora: e.target.value }))}
               />
             </div>
             <div>
@@ -570,6 +597,10 @@ export default function RelatoriosPage() {
                     fim: format(endOfMonth(new Date()), 'yyyy-MM-dd')
                   });
                   setClienteSelecionado('todos');
+                  setDataHoraPersonalizada({
+                    data: format(new Date(), 'yyyy-MM-dd'),
+                    hora: format(new Date(), 'HH:mm')
+                  });
                 }}
                 variant="outline"
                 className="w-full"

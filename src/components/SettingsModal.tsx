@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Eye, EyeOff, Save, Settings, Truck, Percent } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Truck, Percent, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SettingsModalProps {
@@ -27,6 +27,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   
   const [freteFixo, setFreteFixo] = useState('15.00');
   const [comissaoPersonalizada, setComissaoPersonalizada] = useState('5.00');
+  const [comissaoPadrao, setComissaoPadrao] = useState('5.00');
 
   // Carregar configurações do sistema
   useEffect(() => {
@@ -58,6 +59,17 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       if (comissaoData && comissaoData.valor) {
         setComissaoPersonalizada(String(comissaoData.valor));
       }
+
+      // Carregar comissão padrão
+      const { data: comissaoPadraoData } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'comissao_padrao')
+        .single();
+      
+      if (comissaoPadraoData && comissaoPadraoData.valor) {
+        setComissaoPadrao(String(comissaoPadraoData.valor));
+      }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
     }
@@ -75,15 +87,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
-      toast({
-        title: "Erro",
-        description: "A nova senha deve ter pelo menos 6 caracteres.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     try {
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword
@@ -92,19 +95,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       if (error) throw error;
 
       toast({
-        title: "Senha alterada",
+        title: "Senha atualizada",
         description: "Sua senha foi alterada com sucesso.",
       });
-      
+
       setPasswordData({
         currentPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
     } catch (error) {
+      console.error('Erro ao alterar senha:', error);
       toast({
         title: "Erro",
-        description: "Erro ao alterar senha.",
+        description: `Erro ao alterar senha: ${error.message || 'Erro desconhecido'}`,
         variant: "destructive",
       });
     }
@@ -134,7 +138,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       console.error('Erro completo:', error);
       toast({
         title: "Erro",
-        description: `Erro ao atualizar frete fixo: ${error.message || 'Erro desconhecido'}`,
+        description: `Erro ao atualizar frete: ${error.message || 'Erro desconhecido'}`,
         variant: "destructive",
       });
     }
@@ -142,12 +146,20 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const handleComissaoUpdate = async () => {
     try {
-      const { error } = await supabase
-        .from('configuracoes')
-        .upsert({
+      const updates = [
+        {
           chave: 'comissao_personalizada',
           valor: parseFloat(comissaoPersonalizada)
-        }, {
+        },
+        {
+          chave: 'comissao_padrao',
+          valor: parseFloat(comissaoPadrao)
+        }
+      ];
+
+      const { error } = await supabase
+        .from('configuracoes')
+        .upsert(updates, {
           onConflict: 'chave'
         });
 
@@ -158,7 +170,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
       toast({
         title: "Comissão atualizada",
-        description: `Comissão personalizada definida para ${comissaoPersonalizada}%.`,
+        description: `Comissão personalizada: ${comissaoPersonalizada}%, Comissão padrão: ${comissaoPadrao}%.`,
       });
     } catch (error) {
       console.error('Erro completo:', error);
@@ -172,105 +184,29 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
+            <Settings className="h-5 w-5" />
             Configurações do Sistema
           </DialogTitle>
         </DialogHeader>
-        
-        <Tabs defaultValue="password" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="password">Senha</TabsTrigger>
-            <TabsTrigger value="frete">Frete</TabsTrigger>
-            <TabsTrigger value="comissao">Comissão</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="password" className="space-y-4">
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="currentPassword" className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" />
-                  Senha Atual
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="currentPassword"
-                    type={showPassword ? "text" : "password"}
-                    value={passwordData.currentPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
-                    placeholder="Digite sua senha atual"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">Nova Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="newPassword"
-                    type={showNewPassword ? "text" : "password"}
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                    placeholder="Digite a nova senha"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                  >
-                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={passwordData.confirmPassword}
-                    onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                    placeholder="Confirme a nova senha"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              
-              <Button type="submit" className="w-full">
-                Alterar Senha
-              </Button>
-            </form>
-          </TabsContent>
-          
-          <TabsContent value="frete" className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="freteFixo" className="flex items-center gap-2">
-                  <Truck className="h-4 w-4" />
-                  Frete Fixo (R$)
-                </Label>
+
+        <div className="space-y-6">
+          {/* Configurações de Frete */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Truck className="h-5 w-5" />
+                Configurações de Frete
+              </CardTitle>
+              <CardDescription>
+                Configure o valor padrão de frete para o sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="freteFixo">Frete Fixo (R$)</Label>
                 <Input
                   id="freteFixo"
                   type="number"
@@ -278,26 +214,49 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   min="0"
                   value={freteFixo}
                   onChange={(e) => setFreteFixo(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="15.00"
                 />
-                <p className="text-sm text-muted-foreground">
-                  Este valor será aplicado como frete fixo em todo o sistema.
+                <p className="text-sm text-muted-foreground mt-1">
+                  Valor padrão de frete aplicado quando produtos não têm frete personalizado
                 </p>
               </div>
-              
               <Button onClick={handleFreteUpdate} className="w-full">
-                Salvar Frete Fixo
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Configuração de Frete
               </Button>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="comissao" className="space-y-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="comissaoPersonalizada" className="flex items-center gap-2">
-                  <Percent className="h-4 w-4" />
-                  Comissão Personalizada (%)
-                </Label>
+            </CardContent>
+          </Card>
+
+          {/* Configurações de Comissão */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Percent className="h-5 w-5" />
+                Configurações de Comissão
+              </CardTitle>
+              <CardDescription>
+                Configure os percentuais de comissão do sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="comissaoPadrao">Comissão Padrão (%)</Label>
+                <Input
+                  id="comissaoPadrao"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  value={comissaoPadrao}
+                  onChange={(e) => setComissaoPadrao(e.target.value)}
+                  placeholder="5.00"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Percentual padrão aplicado quando não há comissão personalizada
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="comissaoPersonalizada">Comissão Personalizada (%)</Label>
                 <Input
                   id="comissaoPersonalizada"
                   type="number"
@@ -306,24 +265,88 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   max="100"
                   value={comissaoPersonalizada}
                   onChange={(e) => setComissaoPersonalizada(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="5.00"
                 />
-                <p className="text-sm text-muted-foreground">
-                  Este percentual será aplicado como comissão em todo o sistema.
+                <p className="text-sm text-muted-foreground mt-1">
+                  Percentual personalizado que pode ser usado em vendas específicas
                 </p>
               </div>
-              
               <Button onClick={handleComissaoUpdate} className="w-full">
-                Salvar Comissão Personalizada
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Configurações de Comissão
               </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
-        
-        <div className="flex justify-end pt-4">
-          <Button variant="outline" onClick={onClose}>
-            Fechar
-          </Button>
+            </CardContent>
+          </Card>
+
+          {/* Alteração de Senha */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Alterar Senha</CardTitle>
+              <CardDescription>
+                Altere sua senha de acesso ao sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div>
+                  <Label htmlFor="newPassword">Nova Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="newPassword"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <Button type="submit" className="w-full">
+                  <Save className="h-4 w-4 mr-2" />
+                  Alterar Senha
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </DialogContent>
     </Dialog>

@@ -5,10 +5,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, Plus, Truck } from 'lucide-react';
+import { Trash2, Plus, Truck, Percent, Info } from 'lucide-react';
 import { useClientes } from '@/hooks/useClientes';
 import { useProdutos } from '@/hooks/useProdutos';
 import { useFreteConfig } from '@/hooks/useFreteConfig';
+import { useComissaoConfig } from '@/hooks/useComissaoConfig';
 import { calcularFrete } from '@/lib/frete';
 
 interface ItemVenda {
@@ -64,6 +65,7 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
   const { clientes, isLoading: clientesLoading } = useClientes();
   const { produtos, isLoading: produtosLoading } = useProdutos();
   const { config: freteConfig } = useFreteConfig();
+  const { config: comissaoConfig } = useComissaoConfig();
   const isMountedRef = useRef(true);
   
   const [formData, setFormData] = useState({
@@ -170,6 +172,38 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
   // Calcular o que o cliente realmente vai pagar
   const totalCliente = subtotal - valorFrete - comissaoValor - desconto;
   
+  // Calcular comissão atual baseada na prioridade
+  const calcularComissaoAtual = () => {
+    if (formData.comissao_percentual) {
+      return {
+        percentual: parseFloat(formData.comissao_percentual),
+        origem: 'Venda (Personalizada)'
+      };
+    }
+    
+    const clienteSelecionado = clientes?.find(c => c.id === formData.cliente_id);
+    if (clienteSelecionado?.comissao_personalizada) {
+      return {
+        percentual: clienteSelecionado.comissao_personalizada,
+        origem: 'Cliente'
+      };
+    }
+    
+    if (comissaoConfig?.comissaoPersonalizada) {
+      return {
+        percentual: comissaoConfig.comissaoPersonalizada,
+        origem: 'Sistema (Personalizada)'
+      };
+    }
+    
+    return {
+      percentual: comissaoConfig?.comissaoPadrao || 5.0,
+      origem: 'Sistema (Padrão)'
+    };
+  };
+
+  const comissaoAtual = calcularComissaoAtual();
+
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if (!isMountedRef.current) return;
@@ -271,8 +305,22 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                   max="100"
                   value={formData.comissao_percentual}
                   onChange={(e) => setFormData({ ...formData, comissao_percentual: e.target.value })}
-                  placeholder="Ex: 10.00 (deixe vazio para usar do cliente)"
+                  placeholder="Ex: 10.00 (deixe vazio para usar automático)"
                 />
+                <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium">Comissão Atual: {comissaoAtual.percentual}%</p>
+                      <p className="text-xs text-blue-600">Origem: {comissaoAtual.origem}</p>
+                      {formData.comissao_percentual && (
+                        <p className="text-xs text-blue-600 mt-1">
+                          ⚠️ Esta comissão personalizada sobrescreverá todas as outras configurações
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
               <div>
                 <Label htmlFor="usar_frete_manual">Frete Manual (Admin)</Label>

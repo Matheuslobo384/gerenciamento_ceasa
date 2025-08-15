@@ -4,7 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Percent, Info } from 'lucide-react';
 import { Cliente } from '@/hooks/useClientes';
+import { useComissaoConfig } from '@/hooks/useComissaoConfig';
 
 interface ClienteFormProps {
   cliente?: Cliente;
@@ -14,6 +16,8 @@ interface ClienteFormProps {
 }
 
 export function ClienteForm({ cliente, onSubmit, onCancel, isLoading }: ClienteFormProps) {
+  const { config: comissaoConfig } = useComissaoConfig();
+  
   const [formData, setFormData] = useState({
     nome: cliente?.nome || '',
     email: cliente?.email || '',
@@ -42,6 +46,11 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isLoading }: ClienteF
       ativo: formData.ativo
     });
   };
+
+  // Calcular comissão efetiva
+  const comissaoEfetiva = formData.comissao_personalizada 
+    ? parseFloat(formData.comissao_personalizada) 
+    : (comissaoConfig?.comissaoPersonalizada || comissaoConfig?.comissaoPadrao || 5.0);
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -126,7 +135,10 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isLoading }: ClienteF
           </div>
 
           <div>
-            <Label htmlFor="comissao_personalizada">Comissão Personalizada (%)</Label>
+            <Label htmlFor="comissao_personalizada" className="flex items-center gap-2">
+              <Percent className="h-4 w-4" />
+              Comissão Personalizada (%)
+            </Label>
             <Input
               id="comissao_personalizada"
               type="number"
@@ -137,6 +149,23 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isLoading }: ClienteF
               onChange={(e) => setFormData({ ...formData, comissao_personalizada: e.target.value })}
               placeholder="Ex: 5.5 (deixe vazio para usar padrão)"
             />
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium">Comissão Efetiva: {comissaoEfetiva}%</p>
+                  <p className="text-xs text-blue-600">
+                    {formData.comissao_personalizada 
+                      ? 'Comissão personalizada do cliente' 
+                      : `Usando comissão do sistema (${comissaoConfig?.comissaoPersonalizada || comissaoConfig?.comissaoPadrao || 5.0}%)`
+                    }
+                  </p>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Esta comissão será aplicada em todas as vendas deste cliente
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">
