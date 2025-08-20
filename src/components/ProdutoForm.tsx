@@ -116,7 +116,7 @@ export function ProdutoForm({ produto, onSubmit, onCancel, isLoading }: ProdutoF
             </div>
 
             <div>
-              <Label htmlFor="frete">Frete</Label>
+              <Label htmlFor="frete">Frete Personalizado (R$)</Label>
               <Input
                 id="frete"
                 type="number"
@@ -126,6 +126,9 @@ export function ProdutoForm({ produto, onSubmit, onCancel, isLoading }: ProdutoF
                 value={formData.frete}
                 onChange={(e) => setFormData({ ...formData, frete: e.target.value })}
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Deixe vazio ou 0 para usar frete padrão do sistema
+              </p>
             </div>
           </div>
 

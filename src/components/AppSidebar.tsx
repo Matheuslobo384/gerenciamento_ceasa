@@ -1,4 +1,4 @@
-import { Package, Users, ShoppingCart, BarChart3, FileText, Settings, TestTube } from "lucide-react";
+import { Package, Users, ShoppingCart, BarChart3, FileText, TestTube } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import leculgoLogo from "@/assets/leculgo-logo.svg";
 import {
@@ -19,7 +19,6 @@ const menuItems = [
   { title: "Clientes", url: "/clientes", icon: Users },
   { title: "Vendas", url: "/vendas", icon: ShoppingCart },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
-  { title: "Configurações", url: "/configuracoes", icon: Settings },
   { title: "🧪 Teste Frete", url: "/teste-frete", icon: TestTube },
 ];
 

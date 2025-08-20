@@ -23,22 +23,25 @@ export interface FreteConfig {
 export function FreteConfig({ onSave, isLoading, initialConfig }: FreteConfigProps) {
   const { toast } = useToast();
   const [config, setConfig] = useState<FreteConfig>({
-    fretePadrao: 15,
+    fretePadrao: 0, // ✅ Mudado de 15 para 0
     tipoCalculo: 'por_pedido',
-    fretePorQuantidade: 5
+    fretePorQuantidade: 0 // ✅ Mudado de 5 para 0
   });
 
   // Atualizar estado quando initialConfig mudar
   useEffect(() => {
     if (initialConfig) {
-      setConfig(initialConfig);
+      setConfig({
+        fretePadrao: initialConfig.fretePadrao ?? 0, // ✅ Usar ?? em vez de || para aceitar 0
+        tipoCalculo: initialConfig.tipoCalculo,
+        fretePorQuantidade: initialConfig.fretePorQuantidade ?? 0 // ✅ Usar ?? em vez de || para aceitar 0
+      });
     }
   }, [initialConfig]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave(config);
-    toast({ title: 'Configurações de frete salvas com sucesso!' });
   };
 
   return (
@@ -82,8 +85,16 @@ export function FreteConfig({ onSave, isLoading, initialConfig }: FreteConfigPro
               type="number"
               step="0.01"
               value={config.fretePadrao}
-              onChange={(e) => setConfig({ ...config, fretePadrao: parseFloat(e.target.value) || 0 })}
-              placeholder="15.00"
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value === '' || value === undefined) {
+                  setConfig({ ...config, fretePadrao: 0 });
+                } else {
+                  const numValue = parseFloat(value);
+                  setConfig({ ...config, fretePadrao: isNaN(numValue) ? 0 : numValue });
+                }
+              }}
+              placeholder="0.00"
             />
           </div>
 
@@ -94,16 +105,22 @@ export function FreteConfig({ onSave, isLoading, initialConfig }: FreteConfigPro
                 id="fretePorQuantidade"
                 type="number"
                 step="0.01"
-                value={config.fretePorQuantidade || 5}
-                onChange={(e) => setConfig({ ...config, fretePorQuantidade: Number(e.target.value) })}
+                value={config.fretePorQuantidade ?? 0}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value === '' || value === undefined) {
+                    setConfig({ ...config, fretePorQuantidade: 0 });
+                  } else {
+                    const numValue = parseFloat(value);
+                    setConfig({ ...config, fretePorQuantidade: isNaN(numValue) ? 0 : numValue });
+                  }
+                }}
               />
               <p className="text-sm text-muted-foreground">
                 O frete será calculado multiplicando este valor pela quantidade total de produtos vendidos.
               </p>
             </div>
           )}
-
-
 
           {/* Informações */}
           <div className="bg-muted p-4 rounded-lg">

@@ -24,7 +24,10 @@ export function ComissaoConfig({ onSave, isLoading, initialConfig }: ComissaoCon
   // Atualizar estado quando initialConfig mudar
   useEffect(() => {
     if (initialConfig) {
-      setConfig(initialConfig);
+      setConfig({
+        comissaoPadrao: initialConfig.comissaoPadrao,
+        comissaoPersonalizada: initialConfig.comissaoPersonalizada
+      });
     }
   }, [initialConfig]);
 
@@ -56,7 +59,10 @@ export function ComissaoConfig({ onSave, isLoading, initialConfig }: ComissaoCon
               min="0"
               max="100"
               value={config.comissaoPadrao}
-              onChange={(e) => setConfig({ ...config, comissaoPadrao: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                setConfig({ ...config, comissaoPadrao: isNaN(value) ? 0 : value });
+              }}
               placeholder="5.00"
             />
             <p className="text-sm text-muted-foreground mt-1">
@@ -74,7 +80,10 @@ export function ComissaoConfig({ onSave, isLoading, initialConfig }: ComissaoCon
               min="0"
               max="100"
               value={config.comissaoPersonalizada}
-              onChange={(e) => setConfig({ ...config, comissaoPersonalizada: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                setConfig({ ...config, comissaoPersonalizada: isNaN(value) ? 0 : value });
+              }}
               placeholder="5.00"
             />
             <p className="text-sm text-muted-foreground mt-1">

@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Eye, EyeOff, Save, Settings, Truck, Percent } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -38,36 +40,36 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
   const loadSystemSettings = async () => {
     try {
-      // Carregar frete fixo
+      // Carregar frete fixo - CORRIGIDO para aceitar valor 0
       const { data: freteData } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'frete_fixo')
         .single();
       
-      if (freteData && freteData.valor) {
+      if (freteData && freteData.valor !== null && freteData.valor !== undefined) {
         setFreteFixo(String(freteData.valor));
       }
 
-      // Carregar comissão personalizada
+      // Carregar comissão personalizada - CORRIGIDO para aceitar valor 0
       const { data: comissaoData } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'comissao_personalizada')
         .single();
       
-      if (comissaoData && comissaoData.valor) {
+      if (comissaoData && comissaoData.valor !== null && comissaoData.valor !== undefined) {
         setComissaoPersonalizada(String(comissaoData.valor));
       }
 
-      // Carregar comissão padrão
+      // Carregar comissão padrão - CORRIGIDO para aceitar valor 0
       const { data: comissaoPadraoData } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'comissao_padrao')
         .single();
       
-      if (comissaoPadraoData && comissaoPadraoData.valor) {
+      if (comissaoPadraoData && comissaoPadraoData.valor !== null && comissaoPadraoData.valor !== undefined) {
         setComissaoPadrao(String(comissaoPadraoData.valor));
       }
     } catch (error) {
@@ -130,6 +132,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         throw error;
       }
 
+      // Invalida cache das configurações de frete para sincronizar com hooks
+      await queryClient.invalidateQueries({ queryKey: ['frete-config'] });
+      await loadSystemSettings(); // Recarrega valores no modal
+
       toast({
         title: "Frete atualizado",
         description: `Frete fixo definido para R$ ${freteFixo}.`,
@@ -167,6 +173,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         console.error('Erro ao atualizar comissão:', error);
         throw error;
       }
+
+      // Invalida cache das configurações de comissão para sincronizar com hooks
+      await queryClient.invalidateQueries({ queryKey: ['comissao-config'] });
+      await loadSystemSettings(); // Recarrega valores no modal
 
       toast({
         title: "Comissão atualizada",

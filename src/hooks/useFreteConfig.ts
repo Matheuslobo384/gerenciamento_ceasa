@@ -22,45 +22,47 @@ export function useFreteConfig() {
         throw error;
       }
       
-      // Criar objeto de configurações com valores padrão
+      // Criar objeto de configurações com valores padrão apenas se não existirem
       const configMap = (configData || []).reduce((acc: any, item: any) => {
         acc[item.chave] = item.valor;
         return acc;
       }, {});
       
       return {
-        fretePadrao: Number(configMap.frete_fixo) || 15,
+        fretePadrao: configMap.frete_fixo !== null && configMap.frete_fixo !== undefined ? Number(configMap.frete_fixo) : 0,
         tipoCalculo: configMap.tipo_calculo_frete || 'por_pedido',
-        fretePorQuantidade: Number(configMap.frete_por_quantidade) || 5
+        fretePorQuantidade: configMap.frete_por_quantidade !== null && configMap.frete_por_quantidade !== undefined ? Number(configMap.frete_por_quantidade) : 0
       } as FreteConfig;
     },
-    enabled: !!user // Só executa se o usuário estiver autenticado
+    enabled: !!user, // Só executa se o usuário estiver autenticado
+    staleTime: 5 * 60 * 1000, // 5 minutos - evita refetch desnecessário
+    cacheTime: 10 * 60 * 1000 // 10 minutos - mantém cache por mais tempo
   });
 
   const updateConfig = useMutation({
     mutationFn: async (newConfig: FreteConfig) => {
-      // Atualizar configurações de frete
+      // Atualizar configurações de frete - FORMATO CORRIGIDO
       const updates = [
         {
           chave: 'frete_fixo',
-          valor: newConfig.fretePadrao,
+          valor: newConfig.fretePadrao, // Valor primitivo direto
           updated_at: new Date().toISOString()
         },
         {
           chave: 'tipo_calculo_frete',
-          valor: newConfig.tipoCalculo,
+          valor: newConfig.tipoCalculo, // Valor primitivo direto
           updated_at: new Date().toISOString()
         }
       ];
-
+  
       if (newConfig.fretePorQuantidade !== undefined) {
         updates.push({
           chave: 'frete_por_quantidade',
-          valor: newConfig.fretePorQuantidade,
+          valor: newConfig.fretePorQuantidade, // Valor primitivo direto
           updated_at: new Date().toISOString()
         });
       }
-
+  
       const { data, error } = await (supabase as any)
         .from('configuracoes')
         .upsert(updates, { onConflict: 'chave' })
@@ -80,9 +82,9 @@ export function useFreteConfig() {
 
   return {
     config: config || {
-      fretePadrao: 15,
+      fretePadrao: 0,
       tipoCalculo: 'por_pedido' as const,
-      fretePorQuantidade: 5
+      fretePorQuantidade: 0
     },
     isLoading,
     updateConfig

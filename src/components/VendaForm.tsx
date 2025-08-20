@@ -95,7 +95,8 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
         observacoes: venda.observacoes || '',
         comissao_percentual: venda.comissao_percentual?.toString() || '',
         frete_manual: venda.frete?.toString() || '',
-        usar_frete_manual: !!venda.frete
+        // Marcar automaticamente como frete manual se o tipo_frete for 'manual'
+        usar_frete_manual: venda.tipo_frete === 'manual' || !!venda.frete
       });
       
       if (venda.itens_venda && venda.itens_venda.length > 0) {
@@ -156,17 +157,26 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
   
   // Usar frete manual se especificado pelo administrador
   const valorFrete = formData.usar_frete_manual ? 
-    (parseFloat(formData.frete_manual) || 0) : 
+    (() => {
+      const value = parseFloat(formData.frete_manual);
+      return isNaN(value) ? 0 : value;
+    })() : 
     calculoFrete.valorFrete;
   
-  const desconto = parseFloat(formData.desconto) || 0;
+  const desconto = (() => {
+    const value = parseFloat(formData.desconto);
+    return isNaN(value) ? 0 : value;
+  })();
   
   // ✅ CORREÇÃO: Total = Subtotal dos produtos - Desconto
   // Frete e comissão são despesas da empresa, não somadas ao que cliente paga
   const total = subtotal - desconto;
   
   // Calcular comissão para exibição
-  const comissaoPercentual = parseFloat(formData.comissao_percentual) || 10;
+  const comissaoPercentual = (() => {
+    const value = parseFloat(formData.comissao_percentual);
+    return isNaN(value) ? 10 : value;
+  })();
   const comissaoValor = (subtotal * comissaoPercentual / 100);
   
   // Calcular o que o cliente realmente vai pagar
@@ -226,6 +236,7 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
           observacoes: formData.observacoes || undefined,
           itens: itensParaEnviar,
           frete: valorFrete,
+          // GARANTIR que tipo_frete seja 'manual' quando usar_frete_manual for true
           tipo_frete: formData.usar_frete_manual ? 'manual' : calculoFrete.tipoFrete,
           comissao_percentual: formData.comissao_percentual ? parseFloat(formData.comissao_percentual) : undefined
         });
@@ -407,7 +418,10 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                     type="number"
                     step="0.01"
                     value={item.preco_unitario}
-                    onChange={(e) => updateItem(item.id, 'preco_unitario', parseFloat(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      updateItem(item.id, 'preco_unitario', isNaN(value) ? 0 : value);
+                    }}
                     className="text-right font-mono" // Alinhar à direita e usar fonte monoespaçada
                   />
                 </div>
@@ -454,13 +468,16 @@ export function VendaForm({ venda, onSubmit, onCancel, isLoading }: VendaFormPro
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {formData.usar_frete_manual ? 
-                    'Frete definido manualmente' : 
+                    'Frete definido manualmente (tem precedência sobre cálculos automáticos)' : 
                     calculoFrete.detalhes
                   }
                 </div>
                 {!formData.usar_frete_manual && freteConfig && (
                   <div className="text-xs text-blue-600">
                     Config: {freteConfig.tipoCalculo} | Padrão: R$ {freteConfig.fretePadrao.toFixed(2)}
+                    {freteConfig.tipoCalculo === 'por_quantidade' && (
+                      <span> | Por produto: R$ {freteConfig.fretePorQuantidade?.toFixed(2) || '5.00'}</span>
+                    )}
                   </div>
                 )}
               </div>

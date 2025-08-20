@@ -44,12 +44,17 @@ export function useProdutos() {
           if (insertData.frete === '' || insertData.frete === undefined) {
             insertData.frete = null;
           } else {
-            insertData.frete = parseFloat(insertData.frete);
-            if (isNaN(insertData.frete)) insertData.frete = null;
+            const freteNum = parseFloat(insertData.frete);
+            if (isNaN(freteNum)) {
+              insertData.frete = null;
+            } else {
+              insertData.frete = freteNum; // Permite zero
+            }
           }
         } else if (insertData.frete === undefined || insertData.frete === null) {
           insertData.frete = null;
         }
+        // Se frete é number (incluindo zero), manter como está
       }
       
       const { data, error } = await (supabase as any)
@@ -82,12 +87,17 @@ export function useProdutos() {
           if (updateData.frete === '' || updateData.frete === undefined) {
             updateData.frete = null;
           } else {
-            updateData.frete = parseFloat(updateData.frete);
-            if (isNaN(updateData.frete)) updateData.frete = null;
+            const freteNum = parseFloat(updateData.frete);
+            if (isNaN(freteNum)) {
+              updateData.frete = null;
+            } else {
+              updateData.frete = freteNum; // Permite zero
+            }
           }
         } else if (updateData.frete === undefined || updateData.frete === null) {
           updateData.frete = null;
         }
+        // Se frete é number (incluindo zero), manter como está
       }
       const { data, error } = await (supabase as any)
         .from('produtos')

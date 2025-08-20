@@ -18,7 +18,6 @@ import ProdutosPage from '@/pages/ProdutosPage';
 import ClientesPage from '@/pages/ClientesPage';
 import VendasPage from '@/pages/VendasPage';
 import RelatoriosPage from '@/pages/RelatoriosPage';
-import ConfiguracoesPage from '@/pages/ConfiguracoesPage';
 import TesteFreteQuantidade from '@/components/TesteFreteQuantidade';
 import NotFound from '@/pages/NotFound';
 
@@ -83,7 +82,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                   <Route path="/clientes" element={<ClientesPage />} />
                   <Route path="/vendas" element={<VendasPage />} />
                   <Route path="/relatorios" element={<RelatoriosPage />} />
-                  <Route path="/configuracoes" element={<ConfiguracoesPage />} />
                   <Route path="/teste-frete" element={<TesteFreteQuantidade />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

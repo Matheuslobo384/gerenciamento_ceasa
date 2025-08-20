@@ -15,7 +15,7 @@ export interface CalculoFreteResult {
 }
 
 export function calcularFrete(
-  itens: ItemVenda[],
+  itens: { produto_id: string; quantidade: number; produto?: { nome: string; frete?: number | null } }[],
   config: FreteConfig,
   subtotal: number
 ): CalculoFreteResult {
@@ -33,49 +33,58 @@ export function calcularFrete(
     case 'por_produto':
       // Soma os fretes individuais de cada produto
       let freteTotal = 0;
-      let detalhesItens: string[] = [];
-      
-      itens.forEach(item => {
+      const detalhesItens: string[] = [];
+      for (const item of itens) {
         const produto = item.produto;
         let freteItem = 0;
-        
+    
+        // Verificar se o produto tem frete personalizado definido (incluindo zero)
         if (produto && produto.frete !== null && produto.frete !== undefined) {
-          // Usar frete personalizado do produto
+          // Usar frete personalizado do produto (mesmo que seja zero)
           freteItem = produto.frete * item.quantidade;
           detalhesItens.push(`${produto.nome}: ${item.quantidade} × R$ ${produto.frete.toFixed(2)} = R$ ${freteItem.toFixed(2)}`);
         } else {
-          // Usar frete padrão configurado
-          freteItem = config.fretePadrao * item.quantidade;
-          detalhesItens.push(`${produto?.nome || 'Produto'}: ${item.quantidade} × R$ ${config.fretePadrao.toFixed(2)} (padrão) = R$ ${freteItem.toFixed(2)}`);
+          // Não exibir valores "padrão" na descrição
+          if (typeof config.fretePadrao === 'number' && config.fretePadrao > 0) {
+            freteItem = config.fretePadrao * item.quantidade;
+            detalhesItens.push(`${produto?.nome || 'Produto'}: ${item.quantidade} × frete do sistema aplicado`);
+          } else {
+            freteItem = 0;
+            detalhesItens.push(`${produto?.nome || 'Produto'}: sem frete personalizado`);
+          }
         }
-        
+
         freteTotal += freteItem;
-      });
+      }
 
-      return {
-        valorFrete: freteTotal,
-        tipoFrete: 'por_produto',
-        detalhes: `Frete por produto: ${detalhesItens.join(', ')}`
-      };
+      if (config.tipoCalculo === 'por_produto') {
+        return {
+          valorFrete: freteTotal,
+          tipoFrete: 'por_produto',
+          detalhes: `Frete por produto: ${detalhesItens.join(', ')}`
+        };
+      }
 
-    case 'por_pedido':
-      // Valor fixo por pedido
-      return {
-        valorFrete: config.fretePadrao,
-        tipoFrete: 'por_pedido',
-        detalhes: `Frete fixo de R$ ${config.fretePadrao.toFixed(2)} por pedido`
-      };
+      if (config.tipoCalculo === 'por_pedido') {
+        const v = typeof config.fretePadrao === 'number' ? config.fretePadrao : 0;
+        return {
+          valorFrete: v,
+          tipoFrete: 'por_pedido',
+          detalhes: v > 0 ? 'Frete fixo por pedido aplicado' : 'Sem frete definido para pedido'
+        };
+      }
 
-    case 'por_quantidade':
       // Calcula frete baseado na quantidade total de produtos
-      const quantidadeTotal = itens.reduce((total, item) => total + item.quantidade, 0);
-      const fretePorQuantidade = config.fretePorQuantidade || 5;
+      const quantidadeTotal = itens.reduce((sum, i) => sum + i.quantidade, 0);
+      const fretePorQuantidade = typeof config.fretePorQuantidade === 'number' ? config.fretePorQuantidade : 0; // removido fallback 5
       const freteQuantidade = quantidadeTotal * fretePorQuantidade;
-      
+
       return {
         valorFrete: freteQuantidade,
         tipoFrete: 'por_quantidade',
-        detalhes: `Frete por quantidade: ${quantidadeTotal} produtos × R$ ${fretePorQuantidade.toFixed(2)} = R$ ${freteQuantidade.toFixed(2)}`
+        detalhes: fretePorQuantidade > 0
+          ? 'Frete por quantidade aplicado'
+          : 'Frete por quantidade não definido'
       };
 
     default:

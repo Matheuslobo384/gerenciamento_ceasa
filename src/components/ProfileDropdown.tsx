@@ -9,10 +9,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, Settings, LogOut, Edit } from 'lucide-react';
+import { User, LogOut, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ProfileModal } from './ProfileModal';
-import { SettingsModal } from './SettingsModal';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -21,7 +20,6 @@ export function ProfileDropdown() {
   const navigate = useNavigate();
   const { profile, updateProfile, signOut, loading } = useAuth();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
   const handleEditProfile = () => {
     setIsProfileModalOpen(true);
@@ -32,10 +30,6 @@ export function ProfileDropdown() {
     if (success) {
       setIsProfileModalOpen(false);
     }
-  };
-
-  const handleSettings = () => {
-    setIsSettingsModalOpen(true);
   };
 
   const handleLogout = async () => {
@@ -83,10 +77,6 @@ export function ProfileDropdown() {
             <Edit className="mr-2 h-4 w-4" />
             <span>Editar Perfil</span>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleSettings}>
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Configurações</span>
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout} className="text-red-600">
             <LogOut className="mr-2 h-4 w-4" />
@@ -100,11 +90,6 @@ export function ProfileDropdown() {
         onClose={() => setIsProfileModalOpen(false)}
         profileData={profile || { nome: '', email: '', telefone: '', empresa: '' }}
         onSave={handleProfileUpdate}
-      />
-      
-      <SettingsModal 
-        isOpen={isSettingsModalOpen} 
-        onClose={() => setIsSettingsModalOpen(false)}
       />
     </>
   );

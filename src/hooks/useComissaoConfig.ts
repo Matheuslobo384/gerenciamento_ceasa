@@ -26,29 +26,31 @@ export function useComissaoConfig() {
         throw error;
       }
       
-      // Criar objeto de configurações com valores padrão
+      // Criar objeto de configurações com valores padrão apenas se não existirem
       const configMap = (configData || []).reduce((acc: any, item: any) => {
         acc[item.chave] = item.valor;
         return acc;
       }, {});
       
       return {
-        comissaoPadrao: Number(configMap.comissao_padrao) || 5.0,
-        comissaoPersonalizada: Number(configMap.comissao_personalizada) || 5.0
+        comissaoPadrao: configMap.comissao_padrao !== null && configMap.comissao_padrao !== undefined ? Number(configMap.comissao_padrao) : 5.0,
+        comissaoPersonalizada: configMap.comissao_personalizada !== null && configMap.comissao_personalizada !== undefined ? Number(configMap.comissao_personalizada) : 5.0
       } as ComissaoConfig;
     },
-    enabled: !!user // Só executa se o usuário estiver autenticado
+    enabled: !!user, // Só executa se o usuário estiver autenticado
+    staleTime: 5 * 60 * 1000, // 5 minutos - evita refetch desnecessário
+    cacheTime: 10 * 60 * 1000 // 10 minutos - mantém cache por mais tempo
   });
 
   const updateConfig = useMutation({
     mutationFn: async (newConfig: Partial<ComissaoConfig>) => {
-      // Atualizar configurações de comissão
+      // Atualizar configurações de comissão - FORMATO CORRIGIDO
       const updates = [];
       
       if (newConfig.comissaoPadrao !== undefined) {
         updates.push({
           chave: 'comissao_padrao',
-          valor: newConfig.comissaoPadrao,
+          valor: newConfig.comissaoPadrao, // Valor primitivo direto
           updated_at: new Date().toISOString()
         });
       }
@@ -56,7 +58,7 @@ export function useComissaoConfig() {
       if (newConfig.comissaoPersonalizada !== undefined) {
         updates.push({
           chave: 'comissao_personalizada',
-          valor: newConfig.comissaoPersonalizada,
+          valor: newConfig.comissaoPersonalizada, // Valor primitivo direto
           updated_at: new Date().toISOString()
         });
       }

@@ -6,11 +6,14 @@ import { useVendas } from '@/hooks/useVendas';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Settings, Truck, Package, Percent, RefreshCw } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 function ConfiguracoesPage() {
   const { config: freteConfig, updateConfig: updateFreteConfig, isLoading: freteLoading } = useFreteConfig();
   const { config: comissaoConfig, updateConfig: updateComissaoConfig, isLoading: comissaoLoading } = useComissaoConfig();
   const { verificarFreteVendas } = useVendas();
+  const { toast } = useToast();
 
   const handleSaveFreteConfig = (newConfig: any) => {
     updateFreteConfig.mutate(newConfig);
@@ -22,6 +25,29 @@ function ConfiguracoesPage() {
 
   const handleVerificarFrete = () => {
     verificarFreteVendas.mutate();
+  };
+
+  const handleVerificarConfiguracoes = async () => {
+    try {
+      // Verificar configurações atuais no banco
+      const { data: configData, error } = await (supabase as any)
+        .from('configuracoes')
+        .select('*')
+        .in('chave', ['frete_fixo', 'tipo_calculo_frete', 'frete_por_quantidade', 'comissao_padrao', 'comissao_personalizada']);
+      
+      if (error) {
+        toast({ title: 'Erro ao verificar configurações', description: error.message, variant: 'destructive' });
+        return;
+      }
+      
+      console.log('Configurações atuais no banco:', configData);
+      toast({ 
+        title: 'Configurações verificadas', 
+        description: `${configData?.length || 0} configurações encontradas no banco` 
+      });
+    } catch (error) {
+      toast({ title: 'Erro ao verificar configurações', description: String(error), variant: 'destructive' });
+    }
   };
 
   return (

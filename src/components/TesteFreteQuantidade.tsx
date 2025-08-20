@@ -99,7 +99,10 @@ function TesteFreteQuantidade() {
                 <Input
                   type="number"
                   value={item.quantidade}
-                  onChange={(e) => updateItem(index, 'quantidade', parseInt(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value);
+                    updateItem(index, 'quantidade', isNaN(value) ? 0 : value);
+                  }}
                   className="w-20"
                   placeholder="Qtd"
                 />
@@ -107,7 +110,10 @@ function TesteFreteQuantidade() {
                   type="number"
                   step="0.01"
                   value={item.preco_unitario}
-                  onChange={(e) => updateItem(index, 'preco_unitario', parseFloat(e.target.value) || 0)}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    updateItem(index, 'preco_unitario', isNaN(value) ? 0 : value);
+                  }}
                   className="w-24"
                   placeholder="Preço"
                 />

@@ -210,7 +210,8 @@ export function useVendas() {
       const vendaParaEnviar = {
         ...vendaData,
         frete: frete || null,
-        tipo_frete: tipo_frete || 'padrao'
+        // Garantir que tipo_frete seja 'manual' quando o frete for definido manualmente
+        tipo_frete: tipo_frete === 'manual' ? 'manual' : (tipo_frete || 'padrao')
       };
       
       console.log('useVendas: Atualizando venda no banco...');
@@ -466,6 +467,12 @@ export function useVendas() {
         
         // Verificar cada venda
         for (const venda of vendasComItens || []) {
+          // PROTEÇÃO: Não recalcular se frete foi definido manualmente
+          if (venda.tipo_frete === 'manual') {
+            console.log(`⚠️ useVendas: Pulando venda ${venda.id} - frete manual definido`);
+            continue;
+          }
+          
           if (venda.itens_venda && venda.itens_venda.length > 0) {
             // Calcular frete correto baseado nos itens
             const itensComProdutos = venda.itens_venda.map((item: any) => ({
